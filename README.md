@@ -1,2 +1,2 @@
-kanyaga.com
+[kanyaga.com](https://kanyaga.com)
 karibu
