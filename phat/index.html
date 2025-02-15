@@ -45,7 +45,6 @@
 
 	<script src="js/three.min.js"></script>
 	<script src="js/GLTFLoader.js"></script>
-	<!-- <script src="js/OrbitControls.min.js"></script> -->
 	<script src="js/tween.min.js"></script>
 
 	<script>
@@ -68,25 +67,19 @@ zzfx=    // play sound
 function chonk(argument) {
 		still = still ? false : true;
 		
-zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
+		zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
 
-	  stones.traverse( child => {
-	      // (child)
+	  letters.traverse( child => {
 	      new TWEEN.Tween(child.position)//
-				.to({y: 0 }, 250)
-				.easing(TWEEN.Easing.Quadratic.In)
+				.to({y: 0 }, 450)
+				.easing(TWEEN.Easing.Quadratic.Out)
 				.start();
 		});
 
 
-
 		if (still) {
 			document.getElementById("btn").classList = 'hideit';	
-		} else {
-		 document.getElementById("btn").classList = '';
 		}
-
-
 
 }
 
@@ -102,19 +95,9 @@ zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
 	document.body.appendChild( renderer.domElement );
 
 	/* camera */
-	camera.position.z = 2;
+	camera.position.z = 3;
 	camera.position.y = 0.1;
-	camera.position.x = 0;
 	camera.lookAt(0,0,0)
-
-	// control
-	// var controls = new THREE.OrbitControls( camera, renderer.domElement );
-	// controls.enablePan = false;
-	// controls.maxAzimuthAngle = 0;
-	// controls.minAzimuthAngle = 0;
-	// controls.maxPolarAngle = Math.PI * 0.49;
-	// controls.maxDistance = 30;
-	// controls.minDistance = 1;
 
 	/* lights  */
 	var light = new THREE.AmbientLight( 0x333333 ); 
@@ -128,22 +111,22 @@ zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
   light1.lookAt(0,0,0)
   scene.add( light1 );
 
-	/* stones group */
-	stones = new THREE.Group();
-	scene.add( stones );
+	/* letters group */
+	letters = new THREE.Group();
+	scene.add( letters );
 
 
 	/* loader */
 	var loader = new THREE.GLTFLoader();
 	loadmodel();
 
-	/* load stones */
+	/* load letters */
 	function loadmodel(model, num){
 		loader.load(
 			'logo.gltf',
 			function ( gltf ) {
 				gltf.scene.scale.set(3,3,3)
-				stones.add( gltf.scene );
+				letters.add( gltf.scene );
 				gltf.scene.children[0].visible = false;	
 
 				
@@ -152,7 +135,7 @@ zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
 			        child.material.shininess = 0.01;
 			        child.material.map = new THREE.TextureLoader().load( 'uv.png' );
 			        child.rnd = Math.floor(Math.random()*5)+3;
-			  			child.position.y = child.rnd/2;
+			  			child.position.y = child.rnd;
 			      }
 
 			    });
@@ -278,10 +261,7 @@ function tweenit(argument) {
 		function onPointerMove( event ) {
 
 			if ( selectedObject ) {
-
-				// selectedObject.material.color.set( '#69f' );
 				selectedObject = null;
-
 			}
 
 			pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
@@ -289,20 +269,15 @@ function tweenit(argument) {
 
 			raycaster.setFromCamera( pointer, camera );
 
-			const intersects = raycaster.intersectObject( stones, true );
+			const intersects = raycaster.intersectObject( letters, true );
 
 			if ( intersects.length > 0 ) {
-
 				const res = intersects.filter( function ( res ) {
-
 					return res && res.object;
-
 				} )[ 0 ];
 
 				if ( res && res.object ) {
 					tweenit(res.object)
-					// zzfx(...[.5,.7,509,.02,.06,.15,,2.5,,57,,,,,,,.01,.76]); // Pickup 39
-
 				}
 
 			}
