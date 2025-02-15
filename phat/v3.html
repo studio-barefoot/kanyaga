@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+	<title>kanyaga</title>
+	<style>
+	html {background-color: #111; scroll-behavior: smooth;}
+	body { background: radial-gradient(ellipse at center, #333333 0%,#000000 150%); 
+		margin: 0; overflow: hidden; user-select:none; 
+		font-family: monospace; cursor: default; color: #fff;}
+		canvas { width: 100%; height: 100%; display: block;
+			position: absolute; top: 0; z-index: 1;}
+			
+			button {
+				cursor: pointer;
+				width: 100%;
+				margin: 0 auto;
+				padding: 20px;
+				background: transparent;
+				border: none;
+				color: #fff;
+				font-family: monospace;
+			}
+			#hud {
+				display: block;
+				text-align: center;
+				bottom: 0;
+				left: 0;
+				position: absolute;
+				width: 100%;
+				z-index: 99;
+			}
+				button {color: red;}
+			.hideit {color: #fff;}
+		</style>
+	</head>
+	<body>
+
+		<div id="hud">
+			<button onclick="chonk()" id="btn">chonk</button>			
+		</div>
+
+	<script src="js/three.min.js"></script>
+	<script src="js/GLTFLoader.js"></script>
+	<script src="js/tween.min.js"></script>
+
+<script>
+	var urls = [ "1.mp3", 
+  "2.mp3", 
+  "3.mp3",
+  "4.mp3",
+  "5.mp3",
+  "6.mp3",
+  "7.mp3",
+  "8.mp3",
+  "9.mp3",
+  "10.mp3",
+  "11.mp3",
+  "12.mp3",
+  "13.mp3",
+  "14.mp3",
+  "15.mp3",
+  "16.mp3",
+  "17.mp3",
+  "18.mp3",
+  "19.mp3" ]
+  .map( (url) => "mp3/" + url );
+
+
+		let group;
+		let selectedObject = null;
+		const raycaster = new THREE.Raycaster();
+		const pointer = new THREE.Vector2();
+
+	// press button
+	function chonk(argument) {
+			letters.traverse( child => {
+			  if (child.isMesh){	
+			  	child.position.y = 0;
+			  	i++;
+			  	setTimeout(function() {
+						tweenit(child)
+					}, i*20);
+		  	}
+			});
+	}
+
+
+
+	/* set 3D scene */
+	var scene = new THREE.Scene();
+	var camera = new THREE.PerspectiveCamera( 125, window.innerWidth/window.innerHeight, 0.1, 100 );
+	scene.add(camera);
+
+	var renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.domElement.id = 'cnv';
+	document.body.appendChild( renderer.domElement );
+
+	/* camera */
+	camera.position.z = 3;
+	camera.position.y = 0.1;
+	camera.lookAt(0,0,0)
+
+	/* lights  */
+	var light = new THREE.AmbientLight( 0x333333 ); 
+	  scene.add( light );
+
+	var pointLight = new THREE.PointLight( 0xffffff, 1.5, 20 );
+	scene.add( pointLight );
+
+  var light1 = new THREE.PointLight( 0xffefef, 0.9 );
+  light1.position.set( 10, 20, 20 );
+  light1.lookAt(0,0,0)
+  scene.add( light1 );
+
+	/* letters group */
+	letters = new THREE.Group();
+	scene.add( letters );
+
+
+	/* loader */
+	var loader = new THREE.GLTFLoader();
+	loadmodel();
+
+	/* load letters */
+	function loadmodel(model, num){
+		loader.load(
+			'logo.gltf',
+			function ( gltf ) {
+				gltf.scene.scale.set(3,3,3)
+				letters.add( gltf.scene );
+				gltf.scene.children[0].visible = false;	
+
+				
+			  gltf.scene.traverse( child => {
+			      if (child.isMesh){
+			        child.material.shininess = 0.01;
+			        child.material.map = new THREE.TextureLoader().load( 'uv.png' );
+			        child.rnd = Math.floor(Math.random()*5)+3;
+			  			child.position.y = child.rnd;
+			      }
+
+			    });
+
+
+		},
+		function ( xhr ) {},
+		function ( error ) {console.log( 'An error happened' );});
+	}
+
+
+
+// make rain
+	var raingroup = [];
+function makerain() {
+for ( var i = 0; i < 300; i ++ ) {
+      var rmaterial = new THREE.MeshBasicMaterial( {
+        color: 0xff0000, 
+        transparent:true, 
+        opacity:0.2
+      } );
+      var rgeometry = new THREE.SphereBufferGeometry( 0.1, 20, 20 )
+      var mesh = new THREE.Mesh( rgeometry, rmaterial );
+          var sc = Math.random()*4;
+          mesh.scale.set(sc*sc, sc*sc, sc*sc);
+
+          mesh.position.x = ( Math.random() - 0.5 ) * 60;
+          mesh.position.y = ( Math.random() - 0.5 ) * 60;
+          mesh.position.z = ( Math.random() - 0.5 ) * 60;
+
+          scene.add( mesh );
+          raingroup.push(mesh);
+        }
+}
+
+
+	/* window resize */
+	window.addEventListener('resize', function(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}, false)
+
+
+var thisrnd = 0;
+var xspeed = 0.02;
+
+function tweenit(argument) {
+	if (argument.anim) {return}
+		  audioPlay(argument);
+	// zzfx(...[.5,.7,509,,,.09,,2.5,,50,,,,,,,,.6]); // Pickup 39
+	argument.anim = true;
+	thisrnd = (Math.random()/4);
+
+	new TWEEN.Tween(argument.scale)//
+	.to({y: 0.8 }, 50)
+	.easing(TWEEN.Easing.Quadratic.In)
+	.start();
+
+	new TWEEN.Tween(argument.position)//
+	.to({y: -0.03 }, 50)
+	.easing(TWEEN.Easing.Quadratic.InOut)
+	.onComplete(function() { 
+		new TWEEN.Tween(argument.position)//
+		.to({y:Math.random()/5 }, 100)
+		.easing(TWEEN.Easing.Quadratic.InOut)
+		.start();
+
+		new TWEEN.Tween(argument.scale)//
+		.to({x:1, y: 1+thisrnd, z:1 }, 100+(thisrnd*20))
+		.easing(TWEEN.Easing.Quadratic.InOut)
+		.start();
+
+	})
+	.start();
+
+
+
+	// return to start
+	setTimeout(function() {
+		new TWEEN.Tween(argument.position)//
+		.to({ x:0,y:0,z:0}, 100)
+		.easing(TWEEN.Easing.Quadratic.InOut)
+		.start();
+
+		new TWEEN.Tween(argument.scale)//
+		.to({x:1, y: 1, z:1 }, 100)
+		.easing(TWEEN.Easing.Quadratic.Out)
+		.onComplete(function() { 
+				argument.anim = false;
+		})
+		.start();
+	}, 200+(thisrnd*100));
+} // end tweenit
+
+	
+
+// loop
+	var animate = function () {
+		TWEEN.update();
+		requestAnimationFrame( animate );
+		renderer.render( scene, camera );
+		
+
+	// rain
+		if (typeof raingroup[0] != "undefined") {
+		  for ( var i = 0; i < raingroup.length; i ++ ) { 
+
+		    raingroup[i].position.y += 0.1+(xspeed);
+		    if (raingroup[i].position.y > 50) {
+
+		      raingroup[i].position.x = -(Math.random() - 0.5) * 100;
+		      raingroup[i].position.y = (Math.random() - 0.5) * 100;
+		      raingroup[i].position.z = (Math.random() - 0.5) * 100;   
+
+
+		  }
+		}
+}
+	};
+
+		// pointer
+		document.addEventListener( 'pointermove', onPointerMove );
+		function onPointerMove( event ) {
+
+			if ( selectedObject ) {
+				selectedObject = null;
+			}
+
+			pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+			pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+			raycaster.setFromCamera( pointer, camera );
+
+			const intersects = raycaster.intersectObject( letters, true );
+
+			if ( intersects.length > 0 ) {
+				const res = intersects.filter( function ( res ) {
+					return res && res.object;
+				} )[ 0 ];
+
+				if ( res && res.object ) {
+					tweenit(res.object)
+
+				}
+
+			}
+
+		}
+
+
+
+	/* start */
+	makerain();
+	animate();
+
+
+//
+
+
+let i = 0;
+function audioPlay(argument) {
+		i++;
+		if (i>urls.length-1) {i = 0;}
+
+		var audiox = new Audio(urls[i]);
+		audiox.volume = 0.2;
+		audiox.mozPreservesPitch = false;
+		audiox.playbackRate = Math.floor(2+Math.random()*1.5);
+		audiox.play()	
+};
+
+
+</script>
+</body>
+</html>
