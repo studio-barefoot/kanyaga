@@ -86,7 +86,7 @@ zzfx=    // play sound
 
 
 
-		var still = false;
+		var pressed = false;
 		let group;
 
 		let selectedObject = null;
@@ -95,21 +95,33 @@ zzfx=    // play sound
 
 // body
 function chonk(argument) {
-	sayit();
-		still = still ? false : true;
-		
-		if (still) {
-			document.getElementById("btn").classList = 'hideit';	
+
+		if (pressed) {
+			document.getElementById("btn").classList = 'hideit';
+					pressed = false;
+					letters.traverse( child => {
+				      new TWEEN.Tween(child.position)//
+							.to({y: 0 }, 450)
+							.easing(TWEEN.Easing.Quadratic.Out)
+							.start();
+					});
+				
 		} else {
+		letters.traverse( child => {
+		  if (child.isMesh){
+	  		tweenit(child)
+	  	}
+		});
+
 			return
 		}
 
-	  letters.traverse( child => {
-	      new TWEEN.Tween(child.position)//
-				.to({y: 0 }, 450)
-				.easing(TWEEN.Easing.Quadratic.Out)
-				.start();
-		});
+
+
+		sayit();
+
+
+
 
 }
 
