@@ -96,33 +96,18 @@ zzfx=    // play sound
 // body
 function chonk(argument) {
 
-		if (pressed) {
-			document.getElementById("btn").classList = 'hideit';
-					pressed = false;
-					letters.traverse( child => {
-				      new TWEEN.Tween(child.position)//
-							.to({y: 0 }, 450)
-							.easing(TWEEN.Easing.Quadratic.Out)
-							.start();
-					});
-				
-		} else {
 		letters.traverse( child => {
-		  if (child.isMesh){
-	  		tweenit(child)
+		  if (child.isMesh){	
+		  	child.position.y = 0;
+	  	i++;
+	  	setTimeout(function() {
+				tweenit(child)
+			}, i*20);
+
 	  	}
 		});
 
-			return
-		}
-
-
-
 		sayit();
-
-
-
-
 }
 
 
