@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <title>64</title>
+    <style>
+      @font-face {
+        font-family: "PICO-8";
+        src: url("font/PICO-8.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+      }
+      body {
+        margin: 0;
+        background: #1a1a1b;
+        overflow: hidden;
+        cursor: crosshair;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "PICO-8", monospace;
+        color: #eee;
+      }
+      canvas {
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+        transform: scale(4);
+      }
+      #hud {
+        position: absolute;
+        top: 4px;
+        /* height: 16px; */
+        background-color: #000;
+        display: block;
+        padding: 4px;
+      }
+      #hud * {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <p>64x64</p>
+    </div>
+
+    <script src="js/three.min.js"></script>
+    <script>
+      // start scene
+      const scene = new THREE.Scene();
+
+      // renderer
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(64, 64);
+      document.body.appendChild(renderer.domElement);
+
+      // camera
+      const camera = new THREE.PerspectiveCamera(75,window.innerWidth / window.innerHeight, 0.1, 1000 );
+      camera.aspect = 1 / 1;
+      camera.updateProjectionMatrix();
+      camera.position.z = 5;
+
+      // cube
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
+      // loop
+      function animate() {
+        requestAnimationFrame(animate);
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+        renderer.render(scene, camera);
+      }
+
+      // start
+      animate();
+    </script>
+  </body>
+</html>
