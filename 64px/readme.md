@@ -1,3 +1,3 @@
 # readme
 
-[jammin](https://itch.io/jam/lowrezjam-2025)
+[low resolution jamming](https://itch.io/jam/lowrezjam-2025)
