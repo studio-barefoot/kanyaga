@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>lospec</title>
+<style>
+body {margin: 0; background: #1d1c1f; 
+overflow: hidden;
+font-family: monospace; }
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+canvas {image-rendering: crisp-edges; image-rendering: pixelated; border: #37313b 1px solid; position: absolute;
+  transform: scale(4);
+}
+.palette {position: absolute; top: 0;}
+.palette div {display: block; width: 20px; height: 20px; text-indent: -2000em; color: #fff; float: left;}
+.palette div:hover {text-indent: 0;}
+</style>
+</head>
+<body>
+
+<script src="three.min.js"></script>
+<script>
+// player
+player = {
+  speed:0.25
+};
+
+// keys
+keyboard = {
+  _pressed: {},
+  LEFT: 37,
+  RIGHT: 39,
+  UP: 38,
+  DOWN: 40,
+
+isDown: function(keyCode) {
+  return this._pressed[keyCode];
+},
+
+onKeydown: function(event) {
+  this._pressed[event.keyCode] = true;
+},
+
+onKeyup: function(event) {
+delete this._pressed[event.keyCode];
+}
+};
+
+// events
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event); }, false);
+
+const COLORS = [
+"#eae1f0",//0
+"#7e7185",//1
+"#37313b",//2
+"#1d1c1f",//3
+"#89423f",//4
+"#f63f4c",//5
+"#fdbb27",//6
+"#8d902e",//7
+"#4159cb",//8
+"#59a7af"//9
+];
+
+document.body.style.backgroundColor = COLORS[3];
+
+
+// fit to screen functions
+var visibleHeightAtZDepth = (depth, camera) => {
+  var cameraOffset = camera.position.y;
+  if (depth < cameraOffset) depth -= cameraOffset;else
+  depth += cameraOffset;
+  var vFOV = camera.fov * Math.PI / 180;
+  return 2 * Math.tan(vFOV / 2) * Math.abs(depth);
+};
+
+var visibleWidthAtZDepth = (depth, camera) => {
+  var height = visibleHeightAtZDepth(depth, camera);
+  return height * camera.aspect;
+};
+
+
+
+
+// three.js
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+
+// renderer
+renderer.setPixelRatio( 64/64 );
+renderer.setSize( 64, 64 );
+renderer.domElement.classList = 'center-me'
+document.body.appendChild( renderer.domElement );
+
+// camera
+camera.position.z = 5;
+
+
+
+// hero cursor
+hero = new THREE.Group();
+// cursortexture = new THREE.TextureLoader().load( 'assets/cursor.png' );
+// cursortexture.magFilter = THREE.NearestFilter;
+// cursortexture.minFilter = THREE.NearestFilter;
+// var geometry = new THREE.PlaneGeometry( 1, 1, 1 );
+// var material = new THREE.MeshBasicMaterial( { color:COLORS[0], map:cursortexture, alphaTest:0.2 } );
+// hero = new THREE.Mesh( geometry, material );
+// hero.position.z = -3;
+scene.add( hero );
+
+// hero ship
+var geometry = new THREE.BoxGeometry( 0.8, 0.8, 0.8 );
+var material = new THREE.MeshBasicMaterial( { color:COLORS[7] } );
+ship = new THREE.Mesh( geometry, material );
+ship.position.z = 1;
+scene.add( ship );
+
+// // ship rudder
+// var geometry = new THREE.BoxGeometry( 0.1, 0.8, 1 );
+// var material = new THREE.MeshBasicMaterial( { color:COLORS[2] } );
+// rudder = new THREE.Mesh( geometry, material );
+// ship.add( rudder );
+
+
+// screen sized GUI plane
+let plgeometry = new THREE.PlaneBufferGeometry( 1, 1, 1);
+let plmaterial = new THREE.MeshBasicMaterial( { 
+  // wireframe:true,
+// color :COLORS[5]
+map: new THREE.TextureLoader().load( 'pic.png' )
+} );
+
+//plane object3D
+let plane = new THREE.Mesh( plgeometry, plmaterial );
+plane.scale.set(visibleWidthAtZDepth(-5, camera), visibleHeightAtZDepth(-5, camera), 1);
+vwidth = visibleHeightAtZDepth(-5, camera);
+plmaterial.map.magFilter = THREE.NearestFilter;
+plmaterial.map.minFilter = THREE.NearestFilter;
+plane.name = 'plane';
+scene.add( plane );
+
+
+
+
+// render loop
+var animate = function () {
+  requestAnimationFrame( animate );
+  renderer.render( scene, camera );
+
+// CONTROLS
+// UP
+if (keyboard.isDown(keyboard.UP) && hero.position.y < 3.5 ) {    
+  hero.position.y += player.speed;
+}
+// DOWN
+if (keyboard.isDown(keyboard.DOWN) && hero.position.y > -3.5) {
+  hero.position.y -= player.speed;  
+} 
+// LEFT
+if (keyboard.isDown(keyboard.LEFT) && hero.position.x > -5)   {
+  hero.position.x -= player.speed;
+}
+// RIGHT
+if (keyboard.isDown(keyboard.RIGHT) && hero.position.x < 5)   {
+  hero.position.x += player.speed;
+}
+
+// ship lerp position
+ship.position.x += (hero.position.x - ship.position.x)*0.2;
+ship.position.y += (hero.position.y - ship.position.y)*0.2;
+// // rudder lerp rotation
+// rudder.rotation.x = -((hero.position.y - ship.position.y) * 0.2);
+// rudder.rotation.y = -((hero.position.x - ship.position.x) * 0.4);
+
+
+//
+ship.lookAt(hero.position)
+};// end render loop
+
+// start
+animate();
+</script>
+</body>
+</html>
