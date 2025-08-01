@@ -1,0 +1,531 @@
+<DOCTYPE html>
+  <html>
+    <head>
+      <title>dunes</title>
+      <style type="text/css">
+        * {
+          margin: 0;
+          padding: 0;
+        }
+        @font-face {
+          font-family: "Pico8";
+          src: url("font/pico-8.ttf") format("truetype");
+        }
+        body {
+          margin: 0;
+          background: #1a1a1b;
+          overflow: hidden;
+          cursor: crosshair;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-family: "Pico8", monospace;
+          color: #eee;
+          user-select: none;
+        }
+        canvas {
+          image-rendering: crisp-edges;
+          image-rendering: pixelated;
+          transform: scale(6);
+        }
+        #lvlbump {
+          position: absolute;
+          z-index: 10;
+          top: 4px;
+          left: 4px;
+          transform: scale(0.1);
+          transform-origin: top left;
+        }
+        #hud {
+          position: absolute;
+          top: 0;
+          left: 0;
+          padding: 8px;
+          font-size: 16px;
+          line-height: 20px;
+        }
+        .hide {
+          display: none;
+        }
+
+        .topcenter,
+        .bottomcenter,
+        .leftcenter,
+        .rightcenter {
+          margin: 0;
+          display: inline-block;
+          width: 28px;
+          height: 28px;
+          line-height: 28px;
+          position: absolute;
+          z-index: 999;
+          text-align: center;
+          /* background-color: red; */
+        }
+
+        .topcenter {
+          top: 0;
+          left: 50%;
+          transform: translate(-50%, 0) rotate(-90deg);
+        }
+        .bottomcenter {
+          bottom: 0;
+          left: 50%;
+          transform: translate(-50%, 0) rotate(-90deg);
+        }
+        .leftcenter {
+          top: 50%;
+          left: 0;
+          transform: translate(0, -50%);
+        }
+        .rightcenter {
+          top: 50%;
+          right: 0;
+          transform: translate(0, -50%);
+        }
+        #sldr {
+          cursor: pointer;
+          position: absolute;
+          top: 130px;
+          right: -90px;
+          z-index: 99;
+          transform: rotate(-90deg);
+        }
+        #overlay {
+          display: block;
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          right: 0;
+          width: 100%;
+          height: 100%;
+          /* background-color: red; */
+          z-index: 9;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="hide">
+        <p class="topcenter">></p>
+        <p class="bottomcenter"><</p>
+        <p class="leftcenter"><</p>
+        <p class="rightcenter">></p>
+      </div>
+
+      <div id="hud">
+        <div>x:<span id="xvar">1</span></div>
+        <div>z:<span id="zvar">2</span></div>
+        <div><span id="txt"></span></div>
+      </div>
+
+      <input
+        id="sldr"
+        type="range"
+        value="500"
+        min="100"
+        max="400"
+        step="0.1"
+        title="pixellate"
+        oninput="pxx(value)"
+      />
+      <div id="overlay"></div>
+
+      <script src="js/three.min.js"></script>
+      <script src="js/nipplejs.min.js"></script>
+
+      <script type="text/javascript">
+        var camypos = 0;
+
+        function pxx(params) {
+          camera.position.z = params;
+          camypos = params / 2;
+          camera.position.y = camypos;
+          camera.lookAt(0, 60, 0);
+        }
+        var player = {
+          x: 0,
+          z: 0,
+          xlerp: 0,
+          zlerp: 0,
+          vx: 0,
+          vy: 0,
+          rotation: 0,
+          maxSpeed: 0.4,
+          moving: false,
+          landing: true,
+        };
+
+        // nipple.js
+        const nipple = nipplejs.create({
+          dataOnly: true,
+          // zone: document.body,
+          zone: document.getElementById("overlay"),
+        });
+
+        // speed limiter
+        function speedLimit(vx, vy, speedLimit) {
+          const hyp = Math.hypot(vx, vy);
+          if (hyp === 0) return { vx: 0, vy: 0 };
+          const maxSpeed = Math.min(hyp, speedLimit);
+          const ratio = maxSpeed / hyp;
+          return {
+            vx: ratio * vx,
+            vy: ratio * vy,
+          };
+        }
+
+        // // start
+        nipple.on("move", (e, data) => {
+          // console.log(data)
+          const vx = data.force * Math.cos(data.angle.radian);
+          const vy = -data.force * Math.sin(data.angle.radian);
+          const v = speedLimit(vx, vy, player.maxSpeed);
+          player.vx = v.vx;
+          player.vy = v.vy;
+          // player.force = data.distance/25;
+          //
+          player.moving = true;
+        });
+
+        // end
+        nipple.on("end", (e, data) => {
+          player.moving = false;
+          player.vx = 0;
+          player.vy = 0;
+        });
+
+        keyboard = {
+          _pressed: {},
+
+          LEFT: 37,
+          UP: 38,
+          RIGHT: 39,
+          DOWN: 40,
+
+          isDown: function (keyCode) {
+            player.moving = true;
+            return this._pressed[keyCode];
+          },
+
+          onKeydown: function (event) {
+            this._pressed[event.keyCode] = true;
+          },
+
+          onKeyup: function (event) {
+            player.moving = false;
+            delete this._pressed[event.keyCode];
+          },
+        };
+
+        // KEYBOARD
+        window.addEventListener(
+          "keyup",
+          function (event) {
+            keyboard.onKeyup(event);
+          },
+          false
+        );
+        window.addEventListener(
+          "keydown",
+          function (event) {
+            keyboard.onKeydown(event);
+          },
+          false
+        );
+
+        function init() {
+          // lvlbump
+          lvlbump = document.createElement("canvas");
+          stx = lvlbump.getContext("2d");
+          // 2048 x 3590
+          lvlbump.width = 2048;
+          lvlbump.height = 3590;
+          lvlbump.id = "lvlbump";
+          // document.body.appendChild(lvlbump);
+
+          olimg = new Image();
+          olimg.src = "Lake_Natron_bump.jpg";
+
+          olimg.onload = () => {
+            stx.drawImage(olimg, 0, 0);
+
+            initScene();
+            initGround();
+            animate();
+          };
+        }
+
+        //
+        function initScene() {
+          // threejs
+          scene = new THREE.Scene();
+          camera = new THREE.PerspectiveCamera(
+            72,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+          );
+          renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          document.body.appendChild(renderer.domElement);
+          renderer.domElement.id = "cnv";
+          renderer.shadowMap.enabled = true;
+          renderer.setSize(64, 64);
+
+          camera.position.set(0, 50, 150);
+          camera.lookAt(0, 60, 0);
+
+          // light
+          globalLight = new THREE.AmbientLight(0xffffff, 0.4);
+          scene.add(globalLight);
+          createLights();
+
+          // fog
+          scene.fog = new THREE.FogExp2(0x000000, 0.0015);
+
+          // 3D house
+          housearray = [];
+          house = new THREE.Group();
+          scene.add(house);
+
+          // house marker
+          var housegeometry = new THREE.BoxBufferGeometry(2, 30, 2);
+          var bmaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+          var housebox = new THREE.Mesh(housegeometry, bmaterial);
+          housebox.position.y = 25 + 20;
+          house.add(housebox);
+          housearray.push(housebox);
+          // beacon
+          var lightgeometry = new THREE.BoxBufferGeometry(2, 2, 2);
+          var lightbox = new THREE.Mesh(
+            lightgeometry,
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+          );
+          lightbox.position.y = 42 + 20;
+          house.add(lightbox);
+          housearray.push(lightbox);
+
+          // hero group
+          hero = new THREE.Group();
+          scene.add(hero);
+
+          // cube
+          const boxgeometry = new THREE.BoxGeometry(20, 20, 20);
+          const boxmaterial = new THREE.MeshLambertMaterial({
+            color: 0x00ff00,
+          });
+          const cube = new THREE.Mesh(boxgeometry, boxmaterial);
+          cube.receiveShadow = true;
+          cube.castShadow = true;
+          cube.rotation.set(0, -Math.PI / 2, 0);
+          cube.position.y = 0;
+          hero.add(cube);
+
+          // // compass
+          // const radius = 50;
+          // const sectors = 1;
+          // const rings = 1;
+          // const divisions = 64;
+
+          // helper = new THREE.PolarGridHelper(radius, sectors, rings, divisions);
+          // helper.position.y = 9;
+          // hero.add(helper);
+
+          // hero obj
+          // var herogeometry = new THREE.ConeGeometry(20, 40, 24);
+          // var heromaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+          // heroobj = new THREE.Mesh(herogeometry, heromaterial);
+          // heroobj.receiveShadow = true;
+          // heroobj.castShadow = true;
+          // heroobj.position.y = 3;
+          // hero.add(heroobj);
+
+          // tri
+          // var trigeometry = new THREE.CircleBufferGeometry( 20, 3 );
+          // var tmaterial = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+          // tri = new THREE.Mesh( trigeometry, tmaterial );
+          // tri.rotation.set(-Math.PI/2,0,0)
+          // tri.position.y = 18;
+          // hero.add( tri );
+        }
+
+        //
+        function initGround() {
+          // 2048 × 3590 ( * 1.7529296875)
+          // groundplane
+          var geometry = new THREE.PlaneBufferGeometry(
+            2048,
+            2048 * 1.7529296875,
+            300,
+            300
+          );
+          var material = new THREE.MeshStandardMaterial({
+            displacementMap: new THREE.TextureLoader().load(
+              "assets/Lake_Natron_bump.jpg"
+            ),
+            displacementScale: 200,
+            map: new THREE.TextureLoader().load("assets/Lake_Natron.jpg"),
+            metalness: 0,
+            roughness: 20,
+          });
+          material.map.magFilter = THREE.NearestFilter;
+          material.map.minFilter = THREE.NearestFilter;
+
+          groundplane = new THREE.Mesh(geometry, material);
+          groundplane.name = "groundplane";
+          groundplane.position.set(0, -360, 0);
+          groundplane.rotation.x = -Math.PI / 2;
+          groundplane.receiveShadow = true;
+          groundplane.castShadow = true;
+          groundplane.scale.set(4,4,4)
+          scene.add(groundplane);
+          housearray.push(groundplane);
+
+          //
+          var watermaterial = new THREE.MeshBasicMaterial({
+            color: 0x1111ff,
+            transparent: true,
+            opacity: 0.3,
+          });
+          waterplane = new THREE.Mesh(geometry, watermaterial);
+          waterplane.receiveShadow = true;
+          waterplane.castShadow = true;
+          waterplane.rotation.x = -Math.PI / 2;
+          waterplane.position.set(0, -60, 0);
+          scene.add(waterplane);
+        }
+
+        // player movement update
+        function playerupdate() {
+          if (keyboard.isDown(keyboard.LEFT)) {
+            player.x -= player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.RIGHT)) {
+            player.x += player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.UP)) {
+            player.z -= player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.DOWN)) {
+            player.z += player.maxSpeed;
+          }
+
+          // lerp motion
+          player.xlerp += (player.x - player.xlerp) * 0.2;
+          player.zlerp += (player.z - player.zlerp) * 0.2;
+
+          // // lerp rotate
+          // hero.rotation.z = (player.xlerp - player.x) * 0.99;
+          // hero.rotation.x = -(player.zlerp - player.z) * 0.99;
+
+          // if(hero.rotation.z < 0.01 && hero.rotation.z > -0.01 && hero.rotation.x < 0.01 && hero.rotation.x > -0.01){
+          //   if (typeof heroobj != "undefined") {
+          //     helper.position.y += (40 - helper.position.y)*0.2;
+          //   }
+          // } else {
+          //   if (typeof helper != "undefined") {
+          //   helper.position.y += (800 - helper.position.y)*0.2;
+          // }
+          // }
+
+          // // mapcheck
+          // var xdata = stx.getImageData(
+          //   2048 / 2 + player.x * 16,
+          //   3590 / 2 + player.z * 16,
+          //   1,
+          //   1
+          // );
+
+          // // set hero on ground
+          // hero.position.y = xdata.data[0] / 2 - 16;
+          // camera.position.y = camypos+50+(hero.position.y/2);
+
+          // joystick movement
+          if (player.moving) {
+            player.z += player.vy;
+            player.x += player.vx;
+          }
+
+          // align 3D
+          for (let i = 0, len = housearray.length; i < len; i++) {
+            housearray[i].position.x = -player.xlerp * 16 + 0.15;
+            housearray[i].position.z = -player.zlerp * 16 - 0.8;
+          } // for
+
+          // bounds
+          if (player.x > 62*4) {
+            player.x = 62*4;
+          }
+          if (player.x < -62*4) {
+            player.x = -62*4;
+          }
+          if (player.z > 110*4) {
+            player.z = 110*4;
+          }
+          if (player.z < -110*4) {
+            player.z = -110*4;
+          }
+
+          // vars
+          document.getElementById("xvar").innerHTML = Math.floor(player.x);
+          document.getElementById("zvar").innerHTML = Math.floor(player.z);
+          // landing gear
+          if (
+            hero.rotation.z < 0.01 &&
+            hero.rotation.z > -0.01 &&
+            hero.rotation.x < 0.01 &&
+            hero.rotation.x > -0.01
+          ) {
+            player.landing = true;
+            document.getElementById("txt").innerHTML = "landing";
+          } else {
+            player.landing = false;
+            document.getElementById("txt").innerHTML = "flying";
+          }
+
+          // camera
+          camera.position.y = hero.position.y;
+        }
+
+        function createLights() {
+          shadowLight = new THREE.DirectionalLight(0xffffff, 1);
+          shadowLight.position.set(0, 120, 0.1);
+          shadowLight.castShadow = true;
+          shadowLight.shadow.radius = 4;
+          shadowLight.shadow.camera.left = -40;
+          shadowLight.shadow.camera.right = 40;
+          shadowLight.shadow.camera.top = 40;
+          shadowLight.shadow.camera.bottom = -40;
+          shadowLight.shadow.camera.near = 1;
+          shadowLight.shadow.camera.far = 1000;
+          shadowLight.shadow.mapSize.width =
+            shadowLight.shadow.mapSize.height = 128;
+          scene.add(shadowLight);
+        }
+
+        // window resize
+        window.addEventListener(
+          "resize",
+          function () {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+          },
+          false
+        );
+
+        // loop
+        function animate() {
+          requestAnimationFrame(animate);
+          renderer.render(scene, camera);
+          playerupdate();
+        }
+
+        // start
+        init();
+      </script>
+    </body>
+  </html></DOCTYPE
+>
