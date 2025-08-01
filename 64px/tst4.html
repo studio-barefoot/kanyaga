@@ -68,7 +68,7 @@
       <div id="overlay"></div>
 
       <script src="js/three.min.js"></script>
-      <script src="js/nipplejs.js"></script>
+      <script src="js/nipplejs.min.js"></script>
 
       <script type="text/javascript">
         var camypos = 0;
@@ -203,10 +203,13 @@
           document.body.appendChild(renderer.domElement);
           renderer.domElement.id = "cnv";
           renderer.shadowMap.enabled = true;
+          renderer.setPixelRatio(window.devicePixelRatio);
           renderer.setSize(64, 64);
 
+
+          camera.aspect = 1 / 1;
           camera.position.set(0, 50, 150);
-          camera.lookAt(0, 60, 0);
+          camera.updateProjectionMatrix();
 
           // light
           globalLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -229,7 +232,7 @@
           house.add(housebox);
           housearray.push(housebox);
           // beacon
-          var lightgeometry = new THREE.BoxBufferGeometry(2, 2, 2);
+          var lightgeometry = new THREE.BoxBufferGeometry(9, 9, 9);
           var lightbox = new THREE.Mesh(
             lightgeometry,
             new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -241,6 +244,7 @@
           // hero group
           hero = new THREE.Group();
           scene.add(hero);
+          camera.lookAt(hero.position);
 
           // cube
           const boxgeometry = new THREE.BoxGeometry(20, 20, 20);
@@ -254,32 +258,6 @@
           cube.position.y = 0;
           hero.add(cube);
 
-          // // compass
-          // const radius = 50;
-          // const sectors = 1;
-          // const rings = 1;
-          // const divisions = 64;
-
-          // helper = new THREE.PolarGridHelper(radius, sectors, rings, divisions);
-          // helper.position.y = 9;
-          // hero.add(helper);
-
-          // hero obj
-          // var herogeometry = new THREE.ConeGeometry(20, 40, 24);
-          // var heromaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
-          // heroobj = new THREE.Mesh(herogeometry, heromaterial);
-          // heroobj.receiveShadow = true;
-          // heroobj.castShadow = true;
-          // heroobj.position.y = 3;
-          // hero.add(heroobj);
-
-          // tri
-          // var trigeometry = new THREE.CircleBufferGeometry( 20, 3 );
-          // var tmaterial = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
-          // tri = new THREE.Mesh( trigeometry, tmaterial );
-          // tri.rotation.set(-Math.PI/2,0,0)
-          // tri.position.y = 18;
-          // hero.add( tri );
         }
 
         //
@@ -295,7 +273,7 @@
             displacementMap: new THREE.TextureLoader().load(
               "assets/bump.jpg"
             ),
-            displacementScale: 150,
+            displacementScale: 100,
             map: new THREE.TextureLoader().load("assets/col.jpg"),
             metalness: 0,
             roughness: 20,
@@ -346,19 +324,6 @@
           player.xlerp += (player.x - player.xlerp) * 0.2;
           player.zlerp += (player.z - player.zlerp) * 0.2;
 
-          // // lerp rotate
-          // hero.rotation.z = (player.xlerp - player.x) * 0.99;
-          // hero.rotation.x = -(player.zlerp - player.z) * 0.99;
-
-          // if(hero.rotation.z < 0.01 && hero.rotation.z > -0.01 && hero.rotation.x < 0.01 && hero.rotation.x > -0.01){
-          //   if (typeof heroobj != "undefined") {
-          //     helper.position.y += (40 - helper.position.y)*0.2;
-          //   }
-          // } else {
-          //   if (typeof helper != "undefined") {
-          //   helper.position.y += (800 - helper.position.y)*0.2;
-          // }
-          // }
 
           // mapcheck
           player.xu = 1024 / 2 + player.x * 2;
@@ -370,8 +335,7 @@
             1
           );
 
-
-          document.getElementById("txt").innerHTML = xdata.data[0];
+          document.getElementById("txt").innerHTML = 'y:'+xdata.data[0];
 
           stx.drawImage(olimg, 0, 0);
           stx.fillStyle = "rgba(255, 0, 0, 1)";
@@ -379,7 +343,7 @@
 
           // // set hero on ground
           hero.position.y = (xdata.data[0]*2)-290;
-          camera.position.y = camypos + (hero.position.y+90);
+          camera.position.y = camypos + (hero.position.y+40);
           camera.lookAt(hero.position);
 
           // joystick movement
@@ -411,22 +375,7 @@
           // vars
           document.getElementById("xvar").innerHTML = Math.floor(player.x);
           document.getElementById("zvar").innerHTML = Math.floor(player.z);
-          // // landing gear
-          // if (
-          //   hero.rotation.z < 0.01 &&
-          //   hero.rotation.z > -0.01 &&
-          //   hero.rotation.x < 0.01 &&
-          //   hero.rotation.x > -0.01
-          // ) {
-          //   player.landing = true;
-          //   document.getElementById("txt").innerHTML = "landing";
-          // } else {
-          //   player.landing = false;
-          //   document.getElementById("txt").innerHTML = "flying";
-          // }
-
-          // camera
-          // camera.position.y = hero.position.y;
+          
         }
 
         function createLights() {
