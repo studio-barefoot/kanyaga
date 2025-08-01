@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>sprite</title>
+	<style>
+	body {margin: 0; font-family: monospace; background-color: #333; overflow: hidden;}
+	p {color: #fff; position: absolute; left: 20px;}
+</style>
+</head>
+<body>
+	<script src="three.min.js"></script>
+	<script>
+
+// SPRITE
+THREE.SpriteSheetTexture = function(
+	imageURL,
+	framesX,
+	frameDelay,
+	_endFrame
+	) {
+	var timer,
+	frameWidth,
+	frameHeight,
+	x = (y = count = startFrame = 0),
+	endFrame = _endFrame || framesX,
+	canvas = document.createElement("canvas"),
+	ctx = canvas.getContext("2d"),
+	canvasTexture = new THREE.CanvasTexture(canvas),
+	img = new Image();
+
+	img.onload = function() {
+		canvas.width = frameWidth = img.width / framesX;
+		canvas.height = frameHeight = img.height;
+		timer = setInterval(nextFrame, frameDelay);
+	};
+	img.src = imageURL;
+
+	function nextFrame() {
+		count++;
+
+		if (count >= endFrame) {
+			count = 0;
+		}
+
+		x = (count % framesX) * frameWidth;
+		y = ((count / framesX) | 0) * frameHeight;
+
+		ctx.clearRect(0, 0, frameWidth, frameHeight);
+		ctx.drawImage(
+			img,
+			x,
+			y,
+			frameWidth,
+			frameHeight,
+			0,
+			0,
+			frameWidth,
+			frameHeight
+			);
+
+		canvasTexture.needsUpdate = true;
+	}
+
+	return canvasTexture;
+};
+
+
+
+// pointer data
+function pointerPrototype () {
+	this.x = 0;
+	this.dx = 0;
+	this.down = false;
+}
+
+var direction = 'none';
+var pointers = [];
+pointers.push(new pointerPrototype());
+var myspeed = 0.02;
+
+
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+var renderer = new THREE.WebGLRenderer({ alpha: true, alpha: true, antialias: true });
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+
+// camera
+camera.position.z = 2;
+
+// group
+var herogroup = new THREE.Group();
+scene.add( herogroup );
+
+
+// hero
+idletexture = new THREE.TextureLoader().load( 'kididle.png' );  
+runtexture = new THREE.SpriteSheetTexture(
+	"kidrun.png",
+	8,
+	100,
+	8
+	);
+
+
+idletexture.magFilter = THREE.NearestFilter;
+idletexture.minFilter = THREE.LinearMipMapLinearFilter;
+runtexture.magFilter = THREE.NearestFilter;
+runtexture.minFilter = THREE.LinearMipMapLinearFilter;
+// object
+
+heromaterial = new THREE.MeshBasicMaterial({
+	map: idletexture
+	,side:THREE.DoubleSide
+	,transparent:true
+});    
+
+var geometry = new THREE.PlaneGeometry( 1, 1, 1 );
+
+var cube = new THREE.Mesh( geometry, heromaterial );
+herogroup.add( cube );
+
+
+
+// EVENTS
+// mouse
+renderer.domElement.addEventListener('mousedown', e => {
+	e.preventDefault();
+	pointers[0].dx = (e.offsetX - pointers[0].x) * 5.0;
+	pointers[0].x = e.offsetX;
+	pointers[0].down = true;
+	if (pointers[0].x > renderer.domElement.width/2) {
+		direction = 'right';
+	} else {
+		direction = 'left';
+	}
+});
+
+
+// mouse up
+window.addEventListener('mouseup', () => {
+	pointers[0].down = false;
+	direction = 'none';
+});
+
+// Touch
+renderer.domElement.addEventListener('touchstart', e => {
+	e.preventDefault();
+	const touches = e.targetTouches;
+	for (let i = 0; i < touches.length; i++) {
+		if (i >= pointers.length)
+			pointers.push(new pointerPrototype());
+		pointers[i].id = touches[i].identifier;
+		pointers[i].down = true;
+		pointers[i].x = touches[i].pageX;
+	}
+	if (pointers[0].x > renderer.domElement.width/2) {
+		direction = 'right';
+	} else {
+		direction = 'left';
+	}
+});
+
+
+window.addEventListener('touchend', e => {
+	const touches = e.changedTouches;
+	for (let i = 0; i < touches.length; i++)
+		for (let j = 0; j < pointers.length; j++)
+			if (touches[i].identifier == pointers[j].id)
+				pointers[j].down = false;
+			direction = 'none';
+		});
+
+// resize
+window.addEventListener('resize', function() {
+	resizeCanvas();			
+});
+
+function resizeCanvas() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+// player movement update
+function playerupdate() {
+	if (keyboard.isDown(keyboard.LEFT)  || direction == 'left')   {
+		herogroup.rotation.y = Math.PI;
+		herogroup.position.x -= myspeed; 
+		heromaterial.map = runtexture;
+	}
+	else if (keyboard.isDown(keyboard.RIGHT)  || direction == 'right' )   {
+		herogroup.rotation.y = 0;
+		herogroup.position.x += myspeed; 
+		heromaterial.map = runtexture;
+	}  
+	else if (direction == 'none' )   {
+		heromaterial.map = idletexture;
+	}    
+}
+
+// KEYBOARD
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event);
+ }, false);
+
+keyboard = {
+      _pressed: {},
+
+      LEFT: 37,
+      // UP: 38,
+      RIGHT: 39,
+      // DOWN: 40,
+
+      isDown: function(keyCode) {
+		return this._pressed[keyCode];
+      },
+
+      onKeydown: function(event) {
+		this._pressed[event.keyCode] = true;
+      },
+
+      onKeyup: function(event) {
+		// direction = 'none';
+		heromaterial.map = idletexture;
+        delete this._pressed[event.keyCode];
+      }
+    };
+
+
+
+// render loop
+var animate = function () {
+	requestAnimationFrame( animate );
+	renderer.render( scene, camera );
+	playerupdate();
+};
+
+animate();
+
+</script>
+</body>
+</html>

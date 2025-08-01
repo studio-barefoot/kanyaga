@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>sprite</title>
+</head>
+<body style="margin: 0; background: #333; overflow: hidden;">
+  <script src="three.min.js"></script>
+  <script>
+// player
+player = {
+  width:256,
+  size:32,
+  count:8,
+  fps:12,
+  xpos:0
+};
+
+// keys
+keyboard = {
+  _pressed: {},
+  LEFT: 37,
+  RIGHT: 39,
+// UP: 38,
+// DOWN: 40,
+
+isDown: function(keyCode) {
+  return this._pressed[keyCode];
+},
+
+onKeydown: function(event) {
+  this._pressed[event.keyCode] = true;
+},
+
+onKeyup: function(event) {
+// count = 0;
+mesh.material.map = idletexture; 
+delete this._pressed[event.keyCode];
+}
+};
+
+// events
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event); }, false);
+
+// resize
+window.addEventListener( 'resize', onWindowResize, false );
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+// scroll
+window.addEventListener( 'wheel', onscroll, false );
+function onscroll(event) {
+  if (camera.position.z < 0.5) {camera.position.z = 0.5;}
+  camera.position.z += event.deltaY * 0.005;
+}
+
+
+// THREE.JS
+var camera, scene, renderer, clock;
+
+init();
+animate();
+
+function init() {
+
+  camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 10 );
+  camera.position.z = 1;
+  scene = new THREE.Scene();
+  clock = new THREE.Clock();		
+
+// npc group
+npcgroup = new THREE.Group();
+scene.add(npcgroup);
+
+
+
+playersprite('kidrun.png', 'kididle.png', 0);
+//
+renderer = new THREE.WebGLRenderer( { antialias: true, alpha:true } );
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+
+}
+
+
+//
+function  playersprite(walktex, idletex, xpos) {
+// run/idle textures
+runtexture = new THREE.TextureLoader().load( walktex );
+runtexture.repeat.x = 1 / 8;
+runtexture.magFilter = THREE.NearestFilter;
+runtexture.minFilter = THREE.LinearMipMapLinearFilter;
+
+idletexture = new THREE.TextureLoader().load( idletex );
+idletexture.magFilter = THREE.NearestFilter;
+idletexture.minFilter = THREE.LinearMipMapLinearFilter;
+// plane
+heromaterial = new THREE.MeshBasicMaterial({
+  map: idletexture
+  ,side:THREE.DoubleSide
+  ,transparent:true
+});    
+geometry = new THREE.PlaneGeometry(1, 1, 1);
+mesh = new THREE.Mesh(geometry, heromaterial);
+mesh.renderOrder = 1;
+mesh.position.x = player.xpos;
+scene.add(mesh);
+}
+
+
+// LOOP <<<<<<<<<<<<<<<<<<<<<<
+function animate() {
+
+  requestAnimationFrame( animate );
+
+  const t = clock.getElapsedTime();
+
+
+// sprite
+runtexture.offset.x = Math.floor( ( t * player.fps ) % player.count ) * player.size / player.width;
+/// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+renderer.render( scene, camera );
+
+
+// update controls
+if (keyboard.isDown(keyboard.LEFT))   {
+  mesh.rotation.y = Math.PI;
+  mesh.position.x -= 0.05; 
+  mesh.material.map = runtexture; 
+}
+
+if (keyboard.isDown(keyboard.RIGHT))   {
+  mesh.position.x += 0.05; 
+  mesh.rotation.y = 0;
+  mesh.material.map = runtexture;
+} 
+
+
+}
+</script>
+</body>
+</html>

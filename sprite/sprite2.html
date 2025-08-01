@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>sprite</title>
+<style>
+body {margin: 0; background: #111; 
+  overflow: hidden;
+font-family: monospace;}
+canvas {position: absolute;  top:0; left:0;}
+#hitcanvas {z-index: 999;}
+#debug {position: absolute; color: #fff;
+z-index: 9999; background: red; padding: 2px;}
+</style>
+</head>
+<body>
+  <div id="debug"></div>
+<script src="three.min.js"></script>
+  <script>
+var colliderswitch = false;
+var xmax = 1.21;
+var ipxmin = -2;
+var ipxmax = 2;
+var xscale = 0.1;
+var outdoorzero = 0;
+var collidableMeshList = [];
+var bgMeshList = [];
+// player
+player = {
+  width:256,
+  size:32,
+  count:8,
+  fps:12,
+  xpos:-0.04,
+  ipx:0,
+  indoors:false
+};
+
+// keys
+keyboard = {
+  _pressed: {},
+  LEFT: 37,
+  RIGHT: 39,
+  UP: 38,
+  DOWN: 40,
+
+isDown: function(keyCode) {
+  return this._pressed[keyCode];
+},
+
+onKeydown: function(event) {
+  this._pressed[event.keyCode] = true;
+},
+
+onKeyup: function(event) {
+// count = 0;
+hero.material.map = idletexture; 
+delete this._pressed[event.keyCode];
+}
+};
+
+// events
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event); }, false);
+
+// resize
+window.addEventListener( 'resize', onWindowResize, false );
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+  //
+// xdist = 0.7;
+// xwidth = 1;
+// aspect = window.innerWidth/window.innerHeight;
+// fov = 2 * Math.atan( ( xwidth / aspect ) / ( 2 * xdist ) ) * ( 180 / Math.PI );
+// camera = new THREE.PerspectiveCamera( fov, window.innerWidth / window.innerHeight, 0.01, 10 );
+  }
+
+// // scroll
+window.addEventListener( 'wheel', onscroll, false );
+function onscroll(event) {
+  if (camera.position.z < 0.1) {camera.position.z = 0.1;}
+  camera.position.z += event.deltaY * 0.005;
+}
+
+
+// // fit to screen functions
+// var visibleHeightAtZDepth = (depth, camera) => {
+//   var cameraOffset = camera.position.y;
+//   if (depth < cameraOffset) depth -= cameraOffset;else
+//   depth += cameraOffset;
+//   var vFOV = camera.fov * Math.PI / 180;
+//   return 2 * Math.tan(vFOV / 2) * Math.abs(depth);
+// };
+
+// var visibleWidthAtZDepth = (depth, camera) => {
+//   var height = visibleHeightAtZDepth(depth, camera);
+//   return height * camera.aspect;
+// };
+
+
+//background [hitctx]
+var hitcanvas = document.createElement("canvas");
+hitcanvas.id = 'hitcanvas';
+hitcanvas.width = 2048;
+hitcanvas.height = 256;
+var hitctx = hitcanvas.getContext("2d");
+// document.body.appendChild( hitcanvas );
+hitctx.webkitImageSmoothingEnabled = false;
+hitctx.mozImageSmoothingEnabled = false;
+hitctx.imageSmoothingEnabled = false;
+
+// images
+const imageURL = ["assets/hit.png"];
+const images = [];
+var imageCount = 0;
+
+// images loaded
+function allLoaded(){
+hitctx.drawImage(images[0],0,0,2048, 256);
+}
+
+// add images to loaded func
+imageURL.forEach(src => { 
+     const image = new Image();
+     image.src = src;
+     image.onload = ()=>{ 
+         imageCount += 1;
+         if(imageCount === imageURL.length){ 
+             allLoaded();
+         }
+     }
+     images.push(image); 
+});
+
+
+// THREE.JS
+var camera, scene, renderer, clock;
+
+
+
+function init() {
+// camera.lookAt(0,-1,0)
+scene = new THREE.Scene();
+clock = new THREE.Clock();
+
+camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 10 );
+camera.position.z = 0.51;
+
+
+// BackGround group
+bggroup = new THREE.Group();
+// bggroup.position.y = -0.387;
+bggroup.name  = 'bggroup';
+scene.add( bggroup );
+
+// player
+playersprite('kidrun.png', 'kididle.png', 0);
+
+// BG layers
+addBGlayer ('bg1', -0.006)
+addBGlayer ('bg2', -0.005)
+addBGlayer ('bg3', -0.004)
+addBGlayer ('bg4', 0.003)
+
+// adIndoors
+addIndoors ()
+
+// NPC group
+NPCgroup = new THREE.Group();
+NPCgroup.name  = 'NPCgroup';
+scene.add( NPCgroup );
+// NPC group
+indoorgroup = new THREE.Group();
+indoorgroup.name  = 'indoorgroup';
+scene.add( indoorgroup );
+indoorgroup.visible = false;
+
+
+// add NPCs
+makenpc('froggy', 'frog', -0.3, 'outdoors');
+makenpc('ghosty', 'ghost', 0, 'hospital');
+
+
+renderer = new THREE.WebGLRenderer( { antialias: true, alpha:true } );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.domElement.id = 'three';
+document.body.appendChild( renderer.domElement );
+
+} // end init
+
+// add BG layer
+function addBGlayer (filename, posz) {
+bgtexture = new THREE.TextureLoader().load( 'assets/'+filename+'.png' );
+bgtexture.magFilter = THREE.NearestFilter;
+bgtexture.minFilter = THREE.LinearMipMapLinearFilter;
+bgtexture.repeat.x = 1 / 4;
+bgtexture.wrapS = THREE.RepeatWrapping;
+bgtexture.wrapT = THREE.RepeatWrapping;
+
+bgmaterial = new THREE.MeshBasicMaterial({
+  map: bgtexture
+  ,side:THREE.DoubleSide
+  ,transparent:true
+});  
+bggeometry = new THREE.PlaneGeometry(2, 1, 1);
+bg = new THREE.Mesh(bggeometry, bgmaterial);
+bg.renderOrder = 1;
+bg.position.z = posz;
+bg.position.y = 0.387;
+bg.name = filename;
+// bg.scale.set(visibleWidthAtZDepth(camera.position.z, camera), visibleHeightAtZDepth(camera.position.z, camera), 1);
+
+bggroup.add(bg);
+bgMeshList.push(bg);
+}
+
+// add player function
+function  playersprite(walktex, idletex, xpos) {
+// run/idle textures
+runtexture = new THREE.TextureLoader().load( walktex );
+runtexture.repeat.x = 1 / 8;
+runtexture.magFilter = THREE.NearestFilter;
+runtexture.minFilter = THREE.LinearMipMapLinearFilter;
+
+idletexture = new THREE.TextureLoader().load( idletex );
+idletexture.magFilter = THREE.NearestFilter;
+idletexture.minFilter = THREE.LinearMipMapLinearFilter;
+// plane
+heromaterial = new THREE.MeshBasicMaterial({
+  map: idletexture
+  ,side:THREE.DoubleSide
+  ,transparent:true
+});    
+geometry = new THREE.PlaneGeometry(xscale, xscale, xscale);
+hero = new THREE.Mesh(geometry, heromaterial);
+hero.renderOrder = 1;
+hero.position.x = player.xpos;
+hero.name = 'player';
+bggroup.add(hero);
+
+}
+
+// add Indoors
+function addIndoors() {
+var intexture = new THREE.TextureLoader().load( 'assets/indoors.png' );
+intexture.magFilter = THREE.NearestFilter;
+intexture.minFilter = THREE.LinearMipMapLinearFilter;
+intexture.repeat.y = 1 / 8;
+
+var inmaterial = new THREE.MeshBasicMaterial({
+  map: intexture
+  ,side:THREE.DoubleSide
+  ,transparent:true
+  ,alphaTest:1
+});  
+var ingeometry = new THREE.PlaneGeometry(4, 0.5, 1);
+indoorsobj = new THREE.Mesh(ingeometry, inmaterial);
+indoorsobj.renderOrder = 1;
+indoorsobj.position.x = 0.3;
+indoorsobj.position.z = -0.001;
+indoorsobj.position.y = -0.24;
+indoorsobj.scale.set(0.5,0.5,0.5)
+indoorsobj.name = 'indoorsplane';
+indoorsobj.visible = false;
+bggroup.add(indoorsobj);
+}
+
+
+// LOOP <<<<<<<<<<<<<<<<<<<<<<
+function animate() {
+  renderer.render( scene, camera );
+  requestAnimationFrame( animate );
+  const t = clock.getElapsedTime();
+
+
+  // outdoors bounds
+  if (player.xpos < -0.1) {
+    player.xpos = -0.1;
+  } else if (player.xpos > xmax) {
+    player.xpos = xmax;
+  }
+
+  // indoors bounds
+  if (player.ipx < ipxmin) {
+    player.ipx = ipxmin;
+  } else if (player.ipx > ipxmax) {
+    player.ipx = ipxmax;
+  }
+
+
+// indoors/outdoors logic
+  if (player.indoors == true) {
+  // ground player to indoors
+    hero.position.y = -0.29;
+// move indoorsBG with multiplier
+    indoorsobj.material.map.offset.x = player.ipx*(1.3);
+  } else { // outdoors
+// move each BG layer with multiplier
+  for ( var i = 0; i < bgMeshList.length; i ++ ) { 
+    bgMeshList[i].material.map.offset.x = player.xpos*(i/3);
+  }
+  // ground player to outdoors
+  hero.position.y = 0;
+  }
+
+
+// lerp camera y position
+camera.position.y += (hero.position.y - camera.position.y)*0.2;
+
+
+
+// player sprite
+runtexture.offset.x = Math.floor( ( t * player.fps ) % player.count ) * player.size / player.width;
+
+
+
+// // for each NPC, run this..
+for ( var i = 0; i < collidableMeshList.length; i ++ ) { 
+  // eye blink
+if ( Math.random() > 0.98 ) { 
+    collidableMeshList[i].walk = true;
+} else {collidableMeshList[i].walk = false;}
+
+  // run walk cycle randomly
+  if (collidableMeshList[i].walk == true) {
+    var plusOrMinus = Math.random() < 0.5 ? -0.01 : 0.01;
+  collidableMeshList[i].position.x += plusOrMinus;
+  }
+
+// // return if indoors [to end]
+// if (collidableMeshList[i].location != "outdoors") {
+
+
+  // run walk cycle if hit
+  if (collidableMeshList[i].hit == true) {
+  collidableMeshList[i].material.map.offset.x = Math.floor( ( t * collidableMeshList[i].fps ) % collidableMeshList[i].count ) * collidableMeshList[i].size / collidableMeshList[i].width;     
+  } else {
+    collidableMeshList[i].material.map.offset.x = 0; // 1st frame
+  }
+
+
+// get world position of npc
+collidableMeshList[i].updateMatrixWorld();
+var worldMatrix = collidableMeshList[i].matrixWorld;
+var worldPos  = new THREE.Vector3().setFromMatrixPosition(worldMatrix);
+  // collision check
+  if (hero.position.x < worldPos.x+0.01 && hero.position.x > worldPos.x-0.01) {
+  // console.log('collide'+worldPos.x)
+  collidableMeshList[i].rotation.y = 0;
+  collision(collidableMeshList[i])
+} // if
+
+// world edge
+if (worldPos < -0.2) {collidableMeshList[i].position.x = -0.2; console.log('reached edge')}
+
+
+// } // !outdoors
+} //npc for
+
+
+// document.getElementById('debug').innerHTML = collidableMeshList[0].position.x;
+
+// update controls
+
+// UP
+if (keyboard.isDown(keyboard.UP) ) {    
+    if (player.indoors == true) {
+      player.indoors = false;
+      indoorgroup.visible = false;
+      indoorsobj.visible = false;
+    } 
+}
+// DOWN
+if (keyboard.isDown(keyboard.DOWN) && texData.data[0] == 255 && !player.indoors) {
+    player.indoors = true;
+    indoorgroup.visible = true;
+      indoorsobj.visible = true;
+} 
+// LEFT
+if (keyboard.isDown(keyboard.LEFT))   {
+  hero.rotation.y = Math.PI;
+  hero.material.map = runtexture; 
+  if (!player.indoors) {
+      player.xpos -= 0.002; 
+      if (player.xpos > -0.1 && player.xpos < xmax) {
+        NPCgroup.position.x += 0.011;
+      }
+      
+  } else {
+      player.ipx -= 0.002; 
+      indoorgroup.position.x += 0.005;
+  }
+}
+// RIGHT
+if (keyboard.isDown(keyboard.RIGHT))   {
+  hero.rotation.y = 0;
+  hero.material.map = runtexture;
+  if (!player.indoors) {
+    player.xpos += 0.002;
+      if (player.xpos > -0.1 && player.xpos < xmax) {
+        NPCgroup.position.x -= 0.011;
+      }
+  } else {
+    player.ipx += 0.002;
+      indoorgroup.position.x -= 0.005;
+  }
+} 
+
+
+
+  // get red value under character on hitctx
+  texData = hitctx.getImageData(270+player.xpos*1315, 237, 1, 1);
+  
+  if (texData.data[0]<1) { // none
+      indoorsobj.material.map.offset.y = -1;
+  }
+
+   if (texData.data[0]==50) { // hospital
+       indoorsobj.material.map.offset.y = 0.875;
+        ipxmin = -0.23; ipxmax = 0.05;
+  } 
+    if (texData.data[0]==60) { // flat
+      indoorsobj.material.map.offset.x = 0;
+       indoorsobj.material.map.offset.y = 0.75;
+        ipxmin = -0.23; ipxmax = 0.24;
+  } 
+    if (texData.data[0]==70) { // sushi
+      indoorsobj.material.map.offset.x = 0;
+        indoorsobj.material.map.offset.y = 0.625;
+        ipxmin = -0.23; ipxmax = 0.024;
+  } 
+    if (texData.data[0]==80) { // flat2
+      indoorsobj.material.map.offset.x = 0;
+        indoorsobj.material.map.offset.y = 0.5;
+        ipxmin = -0.23; ipxmax = 0.024;
+
+  } 
+    if (texData.data[0]==90) { // bonbons
+      indoorsobj.material.map.offset.x = 0;
+        indoorsobj.material.map.offset.y = 0.375;
+        ipxmin = -0.23; ipxmax = 0.38;
+  } 
+    if (texData.data[0]==100) { // shop
+      indoorsobj.material.map.offset.x = 0;
+        indoorsobj.material.map.offset.y = 0.25;
+        ipxmin = -0.23; ipxmax = 0.26;
+  } 
+    if (texData.data[0]==110) { // burgers
+      indoorsobj.material.map.offset.x = 0;
+        indoorsobj.material.map.offset.y = 0.125;
+        ipxmin = -0.23; ipxmax = 0.19;
+  } 
+  
+
+  // paint character position spot
+  // hitctx.drawImage(images[0], 0,0,2048, 256);
+  // hitctx.fillStyle = "red";
+  // hitctx.fillRect(270+player.xpos*1315, 238, 4, 4);
+
+
+
+
+
+} // loop
+
+
+// make NPC function
+function makenpc(name, objname, xpos, location) {
+// 2D plane texures
+idle = new THREE.TextureLoader().load( 'assets/'+objname+'idle.png' );  
+idle.magFilter = THREE.NearestFilter;
+idle.minFilter = THREE.LinearMipMapLinearFilter;
+// run
+run = new THREE.TextureLoader().load( 'assets/'+objname+'.png' );  
+run.magFilter = THREE.NearestFilter;
+run.minFilter = THREE.LinearMipMapLinearFilter;
+run.repeat.x = 1 / 4;
+
+// 2D plane object
+namematerial = new THREE.MeshBasicMaterial({
+  map: run
+  ,side:THREE.DoubleSide
+  ,alphaTest:1
+});    
+plgeometry = new THREE.PlaneGeometry(xscale, xscale, xscale);
+var tmpname = name;
+name = new THREE.Mesh(plgeometry, namematerial);
+name.name = tmpname;
+name.position.x = xpos;
+// expressions
+expression = new THREE.TextureLoader().load( 'bubble.png' );  
+expression.magFilter = THREE.NearestFilter;
+expression.minFilter = THREE.LinearMipMapLinearFilter;
+expressionmaterial = new THREE.MeshBasicMaterial({
+  map: expression
+  ,side:THREE.DoubleSide
+  ,alphaTest:1
+});
+expressobj = new THREE.Mesh(plgeometry, expressionmaterial);
+expressobj.position.y = 0.08;
+expressobj.visible = false;
+//
+collidableMeshList.push(name);
+
+// set frame vars
+name.width = 128;
+name.size = 32;
+name.count = 4;
+name.fps = 12;
+name.location = location;
+
+if (location != 'outdoors') {
+  // console.log(name)
+  name.position.y = -0.29;
+  name.add(expressobj)
+  indoorgroup.add( name );
+} else {
+  name.add(expressobj);
+  NPCgroup.add(name);
+}
+// add sentences
+// name.talk = talkdata[sntnmb];
+// sntnmb++;
+} //make npc
+
+
+
+
+// do once
+var collision = (function() {
+    return function(argument) {
+        if (!colliderswitch && !argument.hit) {
+    colliderswitch = true;
+    argument.hit = true;
+  // STUFF GOES HERE
+    // console.log('collide!! '+argument.name)
+
+document.getElementById('debug').innerHTML = 'collide!! '+argument.name;
+// console.log()
+argument.children[0].visible = true;
+    
+// reset temp switch
+setTimeout(function () {
+    colliderswitch = false;
+}, 200);
+// reset hitswitch
+setTimeout(function () {
+    argument.hit = false;
+    argument.children[0].visible = false;
+}, 1000);
+
+  }
+};
+})();
+// <<<<<<<<<<<<<<<<<<< START >>>>>>>>>>>>>>>>>>>>> //
+
+init();
+animate();
+</script>
+</body>
+</html>

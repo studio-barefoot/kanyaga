@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>sprite</title>
+</head>
+<body style="margin: 0; background: #000;">
+<script src="three.min.js"></script>
+<script>
+// keys
+keyboard = {
+      _pressed: {},
+      LEFT: 37,
+      RIGHT: 39,
+    // UP: 38,
+    // DOWN: 40,
+
+      isDown: function(keyCode) {
+        return this._pressed[keyCode];
+      },
+
+      onKeydown: function(event) {
+      	this._pressed[event.keyCode] = true;
+      },
+
+      onKeyup: function(event) {
+        // count = 0;
+        // heromaterial.map = idletexture;
+        // xnum=0;
+        delete this._pressed[event.keyCode];
+      }
+    };
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event); }, false);
+
+
+let camera, scene, renderer, clock, spritesheet;
+
+const width = 1536; // total width of the sprite sheet
+const size = 256; // size of a single image
+const count = 6; // amount of images of sprite sheet
+const fps = 12; // how many images are shown per second
+
+init();
+animate();
+
+function init() {
+
+    camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 10 );
+    camera.position.z = 1;
+
+    scene = new THREE.Scene();
+		
+		clock = new THREE.Clock();
+		
+		const loader = new THREE.TextureLoader();
+
+	spriteSheet = loader.load( 'sprite.png' );
+	spriteSheet.minFilter = THREE.LinearFilter;
+	spriteSheet.repeat.x = 1 / count;
+
+    const geometry = new THREE.PlaneBufferGeometry();
+    const material = new THREE.MeshBasicMaterial( { 
+    	map: spriteSheet,
+    	side:THREE.DoubleSide 
+    } );
+
+    mesh = new THREE.Mesh( geometry, material );
+    scene.add( mesh );
+
+    renderer = new THREE.WebGLRenderer( { antialias: true } );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    document.body.appendChild( renderer.domElement );
+
+}
+
+function animate() {
+
+    requestAnimationFrame( animate );
+		
+		const t = clock.getElapsedTime();
+		
+		if ( spriteSheet ) {
+		
+			spriteSheet.offset.x = Math.floor( ( t * fps ) % count ) * size / width;
+		
+		}
+		
+    renderer.render( scene, camera );
+
+if (keyboard.isDown(keyboard.LEFT))   {
+    mesh.rotation.y = Math.PI;
+    mesh.position.x -= 0.05; 
+    // heromaterial.map = runtexture; 
+}
+
+if (keyboard.isDown(keyboard.RIGHT))   {
+    mesh.position.x += 0.05; 
+    mesh.rotation.y = 0;
+    // heromaterial.map = runtexture;
+} 
+
+
+}
+</script>
+</body>
+</html>
