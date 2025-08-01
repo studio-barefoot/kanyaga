@@ -1,0 +1,735 @@
+
+<html>
+<head>
+  <title>v3</title>
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <style>
+  body { margin: 0; 
+    background: #222; 
+    color: #fff;
+    cursor: none;
+    pointer-events: none;
+    font-family: monospace;
+    overflow: hidden;
+  }
+  #cnv {width: 100%; height: 100%; position: absolute;  top: 0; left: 0;}
+  .on {background-color: #222;}
+  .off {background-color: maroon;}
+  #topbuncol, #topbun, #middlebuncol, #middlebun, #buntexcol, #buntex,
+  #perlincol, #colcanvas {display: none;}
+</style>
+</head>
+<body>
+  <script src="three.min.js"></script>
+  <script src="perlin.js"></script>
+
+
+  <script>
+
+  var groundlevel = 1;
+
+// cursor distance
+var distance = 0;
+var threshold = 25;
+var maxspeed = 40;
+
+// states
+running = false;
+idle = true;
+turn = false;
+
+// player
+var player = {
+  xpos:0,
+  ypos:0,
+  oldxpos:0,
+  oldypos:0,
+  xlerp:0,
+  ylerp:0,
+  x:0, y:0,
+  num:1,
+  cdist:1.1
+};
+
+var isMouseDown=false;
+
+
+window.addEventListener('mousedown', mouseDown);
+window.addEventListener('touchstart', mouseDown);
+window.addEventListener('mouseup', mouseUp);
+window.addEventListener('touchend', mouseUp); 
+
+// click events
+function mouseDown(e){
+  isMouseDown = true;
+  running = true;
+  idle = false;
+}
+
+function mouseUp(e){
+  isMouseDown = false;
+  running = false;
+  idle = true;
+}
+
+
+
+// event mouse move [computers]
+window.addEventListener('mousemove', e => {
+  mouse.x = ( e.pageX / window.innerWidth ) * 2 - 1;
+  mouse.y = - ( e.pageY / window.innerHeight ) * 2 + 1;
+  movesprite(e);
+});
+
+
+// event touch move [mobile]
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const touches = e.targetTouches;
+  for (let i = 0; i < touches.length; i++) {
+    mouse.x = ( e.touches[0].pageX / window.innerWidth ) * 2 - 1;
+    mouse.y = - ( e.touches[0].pageY / window.innerHeight ) * 2 + 1;
+    movesprite(e);
+
+  }
+}, false);
+// movesprite
+function movesprite(e) {
+
+  raycaster.setFromCamera( mouse, camera );
+  let intersects = raycaster.intersectObject( cloudmesh );
+  if (intersects.length > 0) { movehero(intersects[ 0 ].point.x, intersects[ 0 ].point.z); }
+}
+
+// move cursor object
+function movehero(x, z) {
+
+  arrowhead.visible = true;
+  cursor.position.x = x;
+  cursor.position.z = z;
+
+// use x/z from ray for speed/direction
+player.xlerp = x;
+player.ylerp = z;
+
+
+
+// hide arrow based on proximity
+distance = cursor.position.distanceTo( herobox.position );
+if (distance>30) {distance = 30;}
+
+
+if (distance<0.8) {
+  arrowhead.visible = false;
+}
+
+if (isMouseDown) {
+  player.cdist = Math.floor(distance);
+// console.log(player.cdist)
+}
+
+//
+if (distance > 2) {
+  player.cdist = Math.floor(distance);
+  cursor.lookAt(0,0,0)
+  herobox.lookAt(cursor.position)
+}
+
+
+if (isMouseDown) {
+  running = true;
+  idle = false;
+}
+
+}
+
+var canvassize = 128;
+
+// perlin
+var perlincol = document.createElement('canvas');
+ctx = perlincol.getContext('2d');
+perlincol.id = "perlincol";
+// document.body.appendChild(perlincol);
+// size of textures
+perlincol.width = canvassize;
+perlincol.height = canvassize;
+
+
+var eqval = 0;
+var xamount = 0;
+var xtime = 0;
+var xspeed = 300;
+var fn = 'simplex'
+var image = ctx.createImageData(perlincol.width, perlincol.height);
+var data = image.data;
+
+var scene = new THREE.Scene();
+var clock = new THREE.Clock();
+
+//raycaster
+raycaster = new THREE.Raycaster();
+mouse = new THREE.Vector2();
+
+var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.8, 1000 );
+var renderer = new THREE.WebGLRenderer( { alpha: true, antialias: true } );
+renderer.setSize( window.innerWidth, window.innerHeight );
+// renderer.localClippingEnabled = true;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.domElement.id = "cnv"
+document.body.appendChild( renderer.domElement );
+scene.position.set(0,-1,0);
+
+// camera
+camera.position.set(0, 20, 30);
+camera.lookAt(0,10,0)
+
+var light = new THREE.AmbientLight( 0x333333 );
+light.intensity = 0.1;
+scene.add( light );
+
+// backlight
+var directionalLight = new THREE.DirectionalLight( 0xcccccc, 0.0005 );
+directionalLight.position.set(0,2000,100)
+directionalLight.rotation.set(-Math.PI/2,0,0)
+scene.add( directionalLight );
+
+
+// arrow
+cursor = new THREE.Group();
+scene.add( cursor );
+
+var geometry = new THREE.CircleBufferGeometry( 2, 3 );
+var material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+arrowhead = new THREE.Mesh( geometry, material );
+arrowhead.rotation.set(-Math.PI/2,0,Math.PI/2)
+arrowhead.position.y = 1;
+cursor.add( arrowhead );
+
+
+// hero
+heromaterial = new THREE.MeshBasicMaterial({wireframe:true});    
+var pgeometry = new THREE.BoxGeometry( 20, 20, 20 );
+herobox = new THREE.Mesh( pgeometry, heromaterial );
+herobox.castShadow = true;
+herobox.position.y = groundlevel;
+herobox.scale.set(0.5,0.5,0.5)
+scene.add( herobox );
+
+
+// floor texture
+// var geometry =  new THREE.CircleBufferGeometry( 20, 60 );
+var geometry =  new THREE.PlaneGeometry( 200, 200, 1 );
+noisetex = new THREE.Texture(perlincol);
+var cloudmaterial = new THREE.MeshBasicMaterial({ 
+  alphaMap: noisetex,
+  alphaTest: 0.4,
+  side: THREE.DoubleSide,
+  transparent:true,
+// opacity:0.9
+});
+
+cloudmesh = new THREE.Mesh(geometry, cloudmaterial);
+cloudmesh.castShadow = true;
+cloudmesh.rotation.x = -Math.PI/2;
+cloudmesh.position.y = -1;
+cloudmesh.customDepthMaterial = new THREE.MeshDepthMaterial( {
+ depthPacking: THREE.RGBADepthPacking,
+ alphaMap: noisetex,
+ alphaTest: 0.7
+} );
+
+scene.add(cloudmesh);
+
+
+
+// grid-small.png
+groundtex = new THREE.TextureLoader().load( 'grid-big.jpg' ); 
+// groundtex.repeat.x = 8;
+// groundtex.repeat.y = 8; 
+groundtex.repeat.x = 1/8;
+groundtex.repeat.y = 1/8; 
+groundtex.wrapS = THREE.RepeatWrapping;
+groundtex.wrapT = THREE.RepeatWrapping;
+groundtex.magFilter = THREE.NearestFilter;
+groundtex.minFilter = THREE.NearestFilter;
+
+// ground
+groundmesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+map:groundtex
+}));
+groundmesh.rotation.x = -Math.PI/2;
+groundmesh.position.y = -1.5;
+scene.add(groundmesh);
+
+
+
+
+//
+// player movement update [runs in loop]
+function playerupdate() {
+// console.log(player.xlerp)
+if (!idle && ((player.cdist/200)+2) > 2.02) {
+// if (isMouseDown) {
+  player.x += Math.round(player.xlerp)/800;
+  player.y += Math.round(player.ylerp)/800;
+
+// steer with lerp
+player.xpos += (player.x-player.xpos)*0.2;
+player.ypos += (player.y-player.ypos)*0.2;
+
+// normal steer
+// player.xpos = player.x;
+// player.ypos = player.y;
+}
+ 
+
+}
+
+
+// EVENTS
+// resize
+window.addEventListener( 'resize', onWindowResize, false );
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+
+
+
+// draw blob canvas
+function drawFrame() {
+// xtime++;
+
+
+var cWidth = perlincol.width;
+var cHeight = perlincol.height;
+
+var max = -Infinity, min = Infinity;
+var noisefn = noise.simplex3;
+
+for (var x = 0; x < cWidth; x++) {
+  for (var y = 0; y < cHeight; y++) {
+  // var value = noisefn((x / 50), (y / 50), xtime/(xspeed*4));// boiling
+  var value = noisefn((x / 50)+player.xpos, (y / 50)+(player.ypos)+20, 2);
+
+  if (max < value) max = value;
+  if (min > value) min = value;
+
+  value = (1 + value) * 0.7 * canvassize;
+
+  var cell = (x + y * cWidth) * 4;
+  data[cell] = data[cell + 1] = data[cell + 2] = value;
+  data[cell + 3] = 255;
+}
+}
+
+ctx.putImageData(image, 0, 0);
+
+// detect colour
+thisx = Math.floor((canvassize/2)-0.5);
+thisy = Math.floor((canvassize/2)-0.5);
+
+// get rgb data
+var xdata = ctx.getImageData(thisx, thisy, 1, 1);
+
+
+groundtex.offset.x =  +player.xpos/50;
+groundtex.offset.y =  -player.ypos/50;
+
+
+// colour check>body class
+if (xdata.data[0] > 115 && xdata.data[1] != 255 ) {
+  document.body.classList = 'off'; 
+} else {
+  document.body.classList = 'on';
+}
+
+// test center spot
+// ctx.fillStyle = '0x000000'; 
+// ctx.fillRect(thisx, thisy, 1, 1);
+
+}	
+
+
+
+
+// zoom
+window.addEventListener( 'wheel', onMouseWheel, false );
+function onMouseWheel( event ) {
+  camera.position.y -= event.deltaY * 0.005;
+  // camera.position.clampScalar( 20, 50 );
+  camera.position.x = 0;
+  // camera.position.z = 30;
+  if (camera.position.y < 1) {camera.position.y = 1}
+}
+
+// window lose focus
+window.onblur = function (evt) {
+  isMouseDown = false;
+  running = false;
+  idle = true;
+turn = false; // idle      
+}
+
+
+
+
+// setupTimers();
+// globals
+var eyesscale = 0;
+var idlestate = true;
+var walkstate = false;
+var num = 0;
+var cosnum = 0;
+var sinnum = 0;
+var lerpsin = 0;
+var lerpcos = 0;
+var xnum = 0;
+var ynum = 0;
+var znum = 0;
+// global vars
+var t = 0;
+var newz = 0;
+var newv = 0;
+var v2v = 0;
+var vv = 0;
+var vx = 0;
+var vz = 0;
+
+
+
+// images
+const imageURL = [
+"buntex.png",
+"leg1.png",
+"face1col.png",
+"grid.png",
+"face2col.png",
+"face3col.png",
+"bunbasetex.png",
+"legcol.png",
+"face1bmp.png",
+"face2bmp.png",
+"face3bmp.png",
+"bunseeds.png",
+"bunseedsbmp.png",
+"face1shade.png",
+"shade.png",
+"baseshade.png",
+];
+
+const images = [];
+var imageCount = 0;
+var modelstore = [];
+
+
+// once images are loaded, fill canvases
+function ready() {
+  // createcanvas("nameofobject", face, heightOfBGtexture, posOfBGtexture);
+  createcanvas("buntex", images[2], 1.1, 30, images[8]);
+  createcanvas("middlebun", images[4], 1, 20, images[9]);
+  createcanvas("topbun", images[5], 1.1, 0, images[10]);
+  makeset();
+} // ready
+
+  // groups
+  buns = new THREE.Group();
+  buns.scale.set(0.5,0.5,0.5)
+  scene.add(buns);
+
+
+function makeset(){
+  // bun base texture
+  var bumpcnv = new THREE.CanvasTexture(buntex);
+  bumpcnv.wrapS = THREE.RepeatWrapping;
+  bumpcnv.wrapT = THREE.RepeatWrapping;
+
+  // sphere face 
+  var geometry = new THREE.SphereBufferGeometry( 10, 500, 500 );
+  var material = new THREE.MeshStandardMaterial( { 
+  color: 0xfc0065,
+    // metalness: 20,
+    roughness: 100,
+    map : bumpcnv,
+    displacementMap: bumpcnv,
+    displacementScale: 20
+    } );
+
+  // make them in 3D
+  createbun("bbmp", buntex, buntexcol);
+  createbun("mbmp", middlebun, middlebuncol);
+  createbun("tbmp", topbun, topbuncol); 
+
+  // set them all in place
+  // bottom bun
+  modelstore[0].position.y = 0;
+  modelstore[0].scale.set(1,0.5,1);
+  modelstore[0].material.color = {r:246, g:206, b:204};
+
+  // middle bun
+  modelstore[1].position.y = 9;
+  modelstore[1].scale.set(0.8,0.5,0.8);
+  modelstore[1].material.color = {r:231, g:186, b:219};
+
+  // top bun
+  modelstore[2].position.y = 18;
+  modelstore[2].scale.set(0.7,0.5,0.7);
+  modelstore[2].material.color = {r:206, g:250, b:155};
+
+}
+
+  // create bun
+function createbun(objname, texname, colname){
+    // sphere 
+    var geometry = new THREE.SphereBufferGeometry( 10, 200, 200 );
+    var material = new THREE.MeshStandardMaterial( { 
+    color: 0xfc0065,
+    metalness: 0.6,
+    map : new THREE.CanvasTexture(colname),
+    displacementMap: new THREE.CanvasTexture(texname),
+    displacementScale: 10
+    } );
+    
+    //
+    var bunobj = new THREE.Mesh( geometry, material );
+    bunobj.name = objname;
+    bunobj.rotation.y = -Math.PI/2;
+    herobox.add( bunobj );
+    modelstore.push(bunobj);
+    // console.log(bunobj)
+}
+
+
+// create bump texture
+function createcanvas(name, face, smultiplier, ypos, bmpface){
+  // bump canvas
+  thisbmp = document.createElement('canvas');
+  bmptx = thisbmp.getContext('2d');
+  thisbmp.id = name;
+  thisbmp.width = 256;
+  thisbmp.height = 128;
+  // base bun bump texture
+  bmptx.fillRect(0, 0, 256, 128);// base black
+  bmptx.drawImage(images[0], 0, ypos, 256, 128*smultiplier);// rounded shape
+  // bmptx.drawImage(images[0], 0, -90, 256, 128);// rounded shape
+  bmptx.drawImage(images[1], 32, 36-(ypos/2));// Rleg
+  bmptx.drawImage(images[1], 97, 36-(ypos/2));// Lleg
+  bmptx.drawImage(images[1], 162, 36-(ypos/2));// BRleg
+  bmptx.drawImage(images[1], -34, 36-(ypos/2));// Lleg
+  bmptx.drawImage(bmpface, 112, 50+(ypos/2), 32, 32);// face
+  // bmptx.drawImage(images[3], 0, 0, 256, 128);// grid 
+
+  // colour canvas
+  thiscol = document.createElement('canvas');
+  coltx = thiscol.getContext('2d');
+  thiscol.id = name+'col';
+  thiscol.width = 256;
+  thiscol.height = 128; 
+  // coltx.fillRect(0, 0, 256, 128);// base black
+  coltx.drawImage(images[6], 0, 0, 256, 128);//base col
+  coltx.drawImage(face, 112, 50+(ypos/2), 32, 32);// face
+  coltx.drawImage(images[7], 32, 36-(ypos/2));// Rleg
+  coltx.drawImage(images[7], 97, 36-(ypos/2));// Lleg
+  coltx.drawImage(images[7], 162, 36-(ypos/2));// BRleg
+  coltx.drawImage(images[7], -34, 36-(ypos/2));// Lleg
+
+  if (name == "topbun") {
+  bmptx.drawImage(images[12], 0, 0, 256, 128);//base col
+  coltx.drawImage(images[11], 0, 0, 256, 128);//base col
+  }
+  if (name == "buntex") {
+  bmptx.drawImage(images[15], 0, 0, 256, 128);//base col
+  coltx.drawImage(images[13], 0, 0, 256, 128);//base col
+  // console.log('face: ' + ypos)
+  }
+  if (name == "middlebun") {
+  coltx.drawImage(images[14], 0, 0, 256, 128);//base col
+  } 
+
+  // do it all
+  document.body.appendChild(thisbmp); 
+  document.body.appendChild(thiscol); 
+
+}
+
+// add images to loaded func
+imageURL.forEach(src => { 
+     const image = new Image();
+     image.src = src;
+     image.onload = ()=>{ 
+         imageCount += 1;
+         if(imageCount === imageURL.length){ 
+             ready();
+         }
+     }
+     images.push(image); 
+}); 
+
+
+
+
+
+
+// animations
+function newwalk(newv){
+  modelstore[2].scale.x = modelstore[2].scale.z = 0.8;
+  modelstore[2].position.y += ((20+(newv*20*(distance/10))+(distance/10))-modelstore[2].position.y)*0.2;
+  modelstore[1].scale.y += ((0.6+(newv/5))-modelstore[1].scale.y)*0.2;
+  modelstore[1].position.y += ((10+(newv*20*(distance/20))+(distance/10))-modelstore[1].position.y)*0.2;
+  modelstore[0].scale.y += ((0.5+newv)-modelstore[0].scale.y)*0.2;
+  modelstore[0].position.y += ((newv*10)- modelstore[0].position.y)*0.2;
+}
+
+
+
+
+// auto walk
+function xwalk(obj, objname, bmptexname, coltexname, shape, Rleg, Lleg, BRleg, BLleg, headpos, facebmp, facecol, multiplier, blinkface){
+// 3D object
+  obj.rotation.z = newv*(distance/20);
+// 2D bump
+    bmptx = document.getElementById(bmptexname).getContext('2d');
+  bmptx.fillRect(0, 0, 256, 128);// base black
+  bmptx.drawImage(images[0], 0, shape, 256, 128*multiplier);// rounded shape
+  bmptx.drawImage(images[1], 32, 20-Rleg);// Rleg
+  bmptx.drawImage(images[1], 97, 20-(Lleg));// Lleg
+  bmptx.drawImage(images[1], 162, 20-(BRleg));// BRleg
+  bmptx.drawImage(images[1], -34, 20-(BLleg));// BLleg
+  bmptx.drawImage(facebmp, 112, 60+headpos, 32, 32);// face
+// 2D colour
+    coltx = document.getElementById(coltexname).getContext('2d');
+  coltx.drawImage(images[6], 0, 0, 256, 128);//base col
+  coltx.drawImage(images[7], 32, 20-(Rleg));// Rleg
+  coltx.drawImage(images[7], 97, 20-(Lleg));// Lleg
+  coltx.drawImage(images[7], 162, 20-(BRleg));// BRleg
+  coltx.drawImage(images[7], -34, 20-(BLleg));// BLleg
+  coltx.drawImage(facecol, 112, 60+(headpos), 32, 32);// face
+
+  if (objname == "tbmp") {
+    bmptx.drawImage(images[12], 0, 0, 256, 128);//base col
+    coltx.drawImage(images[11], 0, 0, 256, 128);//base col
+  }
+
+  if (objname == "bbmp") {
+    bmptx.drawImage(images[15], 0, 0, 256, 128);//base col
+    coltx.drawImage(images[13], 0, 0, 256, 128);//base col
+  }
+  if (objname == "mbmp") {
+    coltx.drawImage(images[14], 0, 0, 256, 128);//base col
+  } 
+// update 3D model
+  var xobject = scene.getObjectByProperty( 'name', objname, true );
+  obj.material.displacementMap.needsUpdate = true;
+  obj.material.map.needsUpdate = true;
+}
+
+
+
+// animations
+function xidle(num){
+  if (modelstore.length<3) {return}
+    // console.log(num)
+  herobox.scale.y = (num/10)+0.5;
+// if (mouse.y) {}
+  modelstore[2].rotation.z += (0- modelstore[2].rotation.z)*0.1;
+  // buns.rotation.z += (0 - buns.rotation.z)*0.3;
+  modelstore[2].scale.y += ((0.5)-modelstore[2].scale.y)*0.2;
+  modelstore[2].position.y += ((20)-modelstore[2].position.y)*0.2;
+  modelstore[1].scale.y += ((0.5)-modelstore[1].scale.y)*0.2;
+  modelstore[1].position.y += (10-modelstore[1].position.y)*0.2;
+  modelstore[0].scale.y += (0.5-modelstore[0].scale.y)*0.2;
+  modelstore[0].position.y += (- modelstore[0].position.y)*0.2;
+    
+}
+
+
+// animate loop
+var animate = function () {
+  drawFrame();
+  playerupdate();
+  
+  noisetex.needsUpdate = true;
+  
+  num++;
+  vx = (10+(Math.sin(num/5)*40))/200;
+  vz = (10+(Math.cos(num/5)*40))/200;
+  newv += (vx - newv) * 0.1;
+  newz += (vz - newz) * 0.1;
+
+
+
+if (running) {
+  // runcycle((player.cdist/200));
+  newwalk(newv);
+  
+  // bottom bun
+  xwalk(modelstore[0], 'bbmp', 'buntex', 'buntexcol', 
+  30, // rounded shape top
+  (newv*20*(distance/4)), (newv*20*(distance/4)), (newz*20*(distance/4)), (newz*20*(distance/4)), // legs
+  5-newz*60,// head
+  images[8], // facebmp
+  images[2], // facecol
+  1.1, // multiplier  
+  images[16] //blinkface
+  );
+
+// // topbun
+  xwalk(modelstore[2], 'tbmp', 'topbun', 'topbuncol', 
+  30, // rounded shape top
+  (newv*50)*(distance/10)-10, (newv*50)*(distance/10)-10, (newv*50)*(distance/10)-10, (newv*50)*(distance/10)-10, // legs
+  newz*30,// head
+  images[10], // facebmp
+  images[5], // facecol
+  1.2, // multiplier  
+  images[5] //blinkface
+  );
+
+
+  // middle bun
+  xwalk(modelstore[1], 'mbmp', 'middlebun', 'middlebuncol', 
+  20, // rounded shape top
+  (newv*2*(distance/2)), (newz*2*(distance/2)), (newv*2*(distance/2)), (newz*2*(distance/2)), // legs
+  newz/2,  // head
+  images[9], // facebmp
+  images[4], // facecol
+  1, // multiplier
+  images[17] //blinkface
+  );  
+
+} else {
+  xidle(newv/2);
+}
+
+
+// // lerp rotations??? <<<<<< FIX THIS!!!!
+  // if (modelstore.length>2) {
+  //   if (cursor.position.z>1) {
+  //   modelstore[0].rotation.y += 1.4+(herobox.rotation.y-modelstore[0].rotation.y)*0.3;
+  //   modelstore[1].rotation.y += 1.4+(herobox.rotation.y-modelstore[1].rotation.y)*0.3;
+  //   modelstore[2].rotation.y += 1.4+(herobox.rotation.y-modelstore[2].rotation.y)*0.3;
+  //   }
+  //   if (cursor.position.z<1) {
+  //   modelstore[0].rotation.y += 1.4+(-(herobox.rotation.y-3)-modelstore[0].rotation.y)*0.3;
+  //   modelstore[1].rotation.y += 1.4+(-(herobox.rotation.y-3)-modelstore[1].rotation.y)*0.3;
+  //   modelstore[2].rotation.y += 1.4+(-(herobox.rotation.y-3)-modelstore[2].rotation.y)*0.3;
+  //   }
+  // }
+
+
+// if (turn && ((player.cdist/200)+2) > 2.02) {
+//   // console.log((player.cdist/200)+2)
+//   xturn((player.cdist/200)+2);
+// }
+
+requestAnimationFrame( animate );
+renderer.render(scene, camera);
+};
+
+// START <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>face</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: orange;
+        font-family: monospace;
+        user-select:none;
+      }
+
+      .centered {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .centered p {
+        /*background: red;*/
+        /*border-radius: 15px;*/
+        transform: scale(8);
+      }
+      #xbutton {position: absolute; z-index: 999;
+        top: 0;
+        left: 0;}
+    </style>
+  </head>
+  <body onclick="newface()">
+
+    <div class="centered">
+      <p id="xface">⊙ヮ⊙</p>
+    </div>
+ 
+
+<script src="faces.js"></script>
+<script>
+var xnum = 0;  
+var playing = false;  
+function newface() {  
+if (playing == true) {return;}
+loop();
+playing = true;
+} 
+
+
+// render loop
+loop = function() {
+xnum++;
+newnum = Math.floor(Math.round(xnum/30));
+document.getElementById('xface').innerHTML = faces[newnum];
+// document.getElementById('xface').style.background = getColor();
+if (newnum==faces.length) {xnum=0;}
+window.requestAnimationFrame(loop);
+}
+
+//
+function getColor(){ 
+  return "hsl(" + 360 * Math.random() + ',' +
+             (25 + 70 * Math.random()) + '%,' + 
+             (85 + 10 * Math.random()) + '%)'
+}
+
+
+</script>
+
+  </body>
+</html>

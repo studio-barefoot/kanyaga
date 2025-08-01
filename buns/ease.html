@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>easing</title>
+<style>
+body {background-color: #333;}
+body.on {background-color: #444;}
+</style>
+</head>
+<body onclick="toggle()">
+<script>
+
+// toggggg
+function toggle(){
+	// console.log(vv, vx);
+	document.body.classList.toggle('on');
+	//
+	if (document.body.classList != "on") {
+		on = false;
+	} else {
+		on = true;
+	}
+}
+
+// globals
+var on = false;
+var t = 0;
+var newv = 0;
+var newt = 0;
+var vv = 0;
+var vx = 0;
+
+// make canvas
+cnv = document.createElement('canvas');
+bmptx = cnv.getContext('2d');
+cnv.id = 'cnv';
+cnv.width = 512;
+cnv.height = 256;
+
+bmptx.fillRect(0, 0, 512, 256);// black
+bmptx.fillStyle = "red"; 
+bmptx.fillRect(0, 0, 20, 20);// red square
+
+document.body.appendChild(cnv);	
+
+
+
+// start
+animate();
+function animate() {
+	requestAnimationFrame( animate );
+	tween();
+}
+
+
+function tween(){
+// time/cos/sin
+t++;
+vv = 70+(Math.cos(t/10)*40);
+vx = 70+(Math.sin(t/5)*100);
+
+// canvas
+bmptx.fillStyle = "black"; 
+bmptx.fillRect(0, 0, 512, 256);// black
+bmptx.fillStyle = "red"; 
+bmptx.fillRect(0, vv, 32, 32);// red square
+bmptx.fillStyle = "green"; 
+bmptx.fillRect(100, vx, 32, 32);// red square
+
+// toggle switch between vx/vv
+if (on) {
+	newv += (vv - newv) * 0.1;
+		} else {
+	newv += (vx - newv) * 0.1;
+}
+bmptx.fillStyle = "blue"; 
+bmptx.fillRect(50, newv, 32, 32);// blue square
+
+}
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, user-scalable=no">
+  	<title>bun</title>
+	<style>
+body { margin: 0; color: #eee;
+/*background-color: #333; */
+background:#333 url(buns.jpg) top right no-repeat;
+background-size: contain;
+font-family: monospace;
+font-size: 2em;
+user-select:none;}
+#cnv {
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 100% }
+#buntex, #middlebun, #topbun {
+position: absolute;	left:0;
+}
+#middlebun {top: 130px;}
+#topbun {top: 260px;}
+#buntexcol, #middlebuncol, #topbuncol {
+position: absolute;	left:258px;}
+#middlebuncol {top: 130px;}
+#topbuncol {top: 260px;}
+</style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script src="OrbitControls.min.js"></script>
+<script>
+var num = 0;
+// images
+const imageURL = [
+"buntex.png",
+"leg1.png",
+"face1col.png",
+"grid.png",
+"face2col.png",
+"face3col.png",
+"bunbasetex.png",
+"legcol.png",
+"face1bmp.png",
+"face2bmp.png",
+"face3bmp.png",
+"bunseeds.png",
+"bunseedsbmp.png"
+];
+const images = [];
+var imageCount = 0;
+
+
+// add images to loaded func
+imageURL.forEach(src => { 
+     const image = new Image();
+     image.src = src;
+     image.onload = ()=>{ 
+         imageCount += 1;
+         if(imageCount === imageURL.length){ 
+             ready();
+         }
+     }
+     images.push(image); 
+});	
+
+// once images are loaded, fill canvases
+function ready() {
+	// createcanvas("nameofobject", face, heightOfBGtexture, posOfBGtexture);
+	createcanvas("buntex", images[2], 0.9, 30, images[8]);
+	createcanvas("middlebun", images[4], 1, 10, images[9]);
+	createcanvas("topbun", images[5], 1.1, 0, images[10]);
+	init();
+	animate();
+} // ready
+
+
+// create bump texture
+function createcanvas(name, face, smultiplier, ypos, bmpface){
+	// bump canvas
+	thisbmp = document.createElement('canvas');
+	bmptx = thisbmp.getContext('2d');
+	thisbmp.id = name;
+	thisbmp.width = 256;
+	thisbmp.height = 128;
+	// base bun bump texture
+	bmptx.fillRect(0, 0, 256, 128);// base black
+	bmptx.drawImage(images[0], 0, ypos, 256, 128*smultiplier);// rounded shape
+	// bmptx.drawImage(images[0], 0, -90, 256, 128);// rounded shape
+	bmptx.drawImage(images[1], 32, 36-(ypos/2));// Rleg
+	bmptx.drawImage(images[1], 97, 36-(ypos/2));// Lleg
+	bmptx.drawImage(images[1], 162, 36-(ypos/2));// BRleg
+	bmptx.drawImage(images[1], -34, 36-(ypos/2));// Lleg
+	bmptx.drawImage(bmpface, 112, 50+(ypos/2), 32, 32);// face
+	// bmptx.drawImage(images[3], 0, 0, 256, 128);// grid	
+
+	// colour canvas
+	thiscol = document.createElement('canvas');
+	coltx = thiscol.getContext('2d');
+	thiscol.id = name+'col';
+	thiscol.width = 256;
+	thiscol.height = 128;	
+	// coltx.fillRect(0, 0, 256, 128);// base black
+	coltx.drawImage(images[6], 0, 0, 256, 128);//base col
+	coltx.drawImage(face, 112, 50+(ypos/2), 32, 32);// face
+	coltx.drawImage(images[7], 32, 36-(ypos/2));// Rleg
+	coltx.drawImage(images[7], 97, 36-(ypos/2));// Lleg
+	coltx.drawImage(images[7], 162, 36-(ypos/2));// BRleg
+	coltx.drawImage(images[7], -34, 36-(ypos/2));// Lleg
+	if (name == "topbun") {
+	bmptx.drawImage(images[12], 0, 0, 256, 128);//base col
+	coltx.drawImage(images[11], 0, 0, 256, 128);//base col
+	}
+	
+	// do it all
+	document.body.appendChild(thisbmp);	
+	document.body.appendChild(thiscol);	
+
+}
+
+
+// events
+window.addEventListener( 'resize', onWindowResize, false );
+// resize event
+function onWindowResize() {
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+
+// initiaise three.js
+function init(){
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+	renderer = new THREE.WebGLRenderer({
+    	alpha: true,
+    	antialias: true
+  	});
+
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.domElement.id = 'cnv';
+	document.body.appendChild( renderer.domElement );
+
+	camera.position.x = 50;
+	camera.position.z = 20;
+
+	// controls
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.enableDamping = true;
+	controls.dampingFactor = 0.9;
+	controls.maxDistance = 300;
+	controls.minDistance = 10;
+
+	// light
+	// var light3 = new THREE.PointLight( 0xffefef, 0.5 );
+	// light3.position.set( 20, 1, 30 );
+	// scene.add( light3 );
+	//
+	var light = new THREE.AmbientLight( 0x333333 );
+	light.intensity = 0.1;
+	scene.add( light );
+
+	// backlight
+	var directionalLight = new THREE.DirectionalLight( 0xcccccc, 0.0005 );
+	directionalLight.position.set(0,2000,100)
+	directionalLight.rotation.set(-Math.PI/2,0,0)
+	scene.add( directionalLight );
+
+	// bun base texture
+	var bumpcnv = new THREE.CanvasTexture(buntex);
+
+
+	// bumpcnv.magFilter = THREE.NearestFilter;
+	// bumpcnv.minFilter = THREE.LinearMipMapLinearFilter;
+
+	bumpcnv.wrapS = THREE.RepeatWrapping;
+	bumpcnv.wrapT = THREE.RepeatWrapping;
+
+	// sphere face 
+	var geometry = new THREE.SphereBufferGeometry( 10, 500, 500 );
+	var material = new THREE.MeshStandardMaterial( { 
+	color: 0xfc0065,
+	  // metalness: 20,
+	  roughness: 100,
+	  map : bumpcnv,
+	  displacementMap: bumpcnv,
+	  displacementScale: 20
+	  } );
+
+	// create buns
+	modelstore = [];
+	//
+	createbun(buntex, buntexcol);
+	createbun(middlebun, middlebuncol);
+	createbun(topbun, topbuncol);
+
+
+
+
+
+
+	// set each bun
+
+	// bottom bun
+	modelstore[0].position.y = 0;
+	modelstore[0].scale.set(1,0.6,1);
+	modelstore[0].material.color = {r:246, g:206, b:204};
+
+	// middle bun
+	modelstore[1].position.y = 10;
+	modelstore[1].scale.set(0.9,0.7,0.9);
+	modelstore[1].material.color = {r:231, g:186, b:219};
+
+	// top bun
+	modelstore[2].position.y = 22;
+	modelstore[2].scale.set(0.8,0.6,0.8);
+	modelstore[2].material.color = {r:203, g:255, b:190};
+
+
+// 
+modelstore.forEach(model => { 
+model.material.map.minFilter = model.material.map.magFilter = THREE.NearestFilter;	
+});	
+
+
+
+	// groundplane
+	var shadowtex = new THREE.TextureLoader().load( images[1].src );
+	var geometry = new THREE.CircleBufferGeometry( 220, 32 );
+
+	var material = new THREE.MeshLambertMaterial( {color: 0x222222, 
+		side: THREE.DoubleSide,
+		map: shadowtex,
+		transparent:true,
+		opacity:0.3
+	} );
+	shadow = new THREE.Mesh( geometry, material );
+	shadow.rotation.x = -Math.PI/2;
+	shadow.position.y = -8;
+	// shadow.position.z = 10;
+	scene.add( shadow );	
+
+
+} // end init
+
+
+// create bun
+function createbun(texname, colname){
+		// sphere 
+		var geometry = new THREE.SphereBufferGeometry( 10, 200, 200 );
+		var material = new THREE.MeshStandardMaterial( { 
+		color: 0xfc0065,
+		metalness: 0.6,
+		map : new THREE.CanvasTexture(texname),
+		map : new THREE.CanvasTexture(colname),
+		displacementMap: new THREE.CanvasTexture(texname),
+		displacementScale: 10
+		} );
+		
+		//
+		var bunobj = new THREE.Mesh( geometry, material );
+		bunobj.name = texname;
+		scene.add( bunobj );
+		modelstore.push(bunobj);
+}
+
+// render loop
+	var animate = function () {
+		requestAnimationFrame( animate );
+		renderer.render( scene, camera );
+		// num++;
+		// var magicnum = (Math.cos(num/20)*6);
+		// // var magicnum = (Math.cos(num/50)+1.8)/1.2;
+		// modelstore.forEach(model => { 
+		// 	// model.scale.set((magicnum/20)+1,Math.sin(magicnum),(magicnum/20)+1);
+		// 	// model.position.set(model.position.x,magicnum,model.position.z);
+		// 	model.position.y = model.position.y+magicnum/100;
+		// });	
+	};
+
+
+</script>
+</body>
+</html>

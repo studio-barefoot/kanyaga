@@ -1,0 +1,284 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>joystick</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+    html, body {background: #333;}
+    body {display: block; margin: 0 auto; padding: 0;
+        overflow: hidden;}
+        .inside {background: #222;}
+        .outside {background: maroon;}
+#hud {position: absolute; z-index: 33;}
+#shootbtn {display: block; width: 50px; height: 50px; background: rgb(255,255,255,0.2); border-radius: 100%; border:none; outline: none; cursor: pointer; margin: 50px;}
+    </style>
+</head>
+<body class="outside">
+
+  <div class="joy" id="joy"></div>
+
+    <script src="nipple.min.js"></script>
+    <script src="three.min.js"></script>
+    <!-- <script src="OrbitControls.min.js"></script> -->
+    <script>
+
+const imageURL = [
+"buntex.png",
+"leg1.png",
+"face1col.png",
+];
+const images = [];
+var imageCount = 0;
+
+
+// add images to loaded func
+imageURL.forEach(src => { 
+     const image = new Image();
+     image.src = src;
+     image.onload = ()=>{ 
+         imageCount += 1;
+         if(imageCount === imageURL.length){ 
+             ready();
+         }
+     }
+     images.push(image); 
+}); 
+
+// START
+function ready() {
+init();
+xhero = new Xhero();
+animate();
+} // ready
+
+
+
+// basic stuff
+var width = window.innerWidth,
+height = window.innerHeight;
+var camera, scene, renderer, geometry, texture, mesh, controls, keyboard;
+var xmove = 2;
+  var xu = 0;
+  var xv = 0;
+
+var herorot = 0;
+var idlestate=true;
+
+function init() {
+    renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true
+    });
+    renderer.setSize(width, height);
+    document.body.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(50, width / height, 100, 4000);
+    camera.position.y = 1800;
+    camera.position.z = 1800;
+    scene.add(camera);
+
+
+// controls = new THREE.OrbitControls(camera, renderer.domElement);
+// controls.enablePan = false;
+// controls.maxPolarAngle = Math.PI * 0.46;
+// controls.enableDamping = true;
+// controls.dampingFactor = 0.4;
+// controls.maxDistance = 2000;
+// controls.minDistance = 200;
+// controls.enablePan = false;
+// controls.enabled = false;
+
+
+// ambient light
+var ambient = new THREE.AmbientLight(0xffffff);
+ambient.intensity = 0.7;
+scene.add(ambient);
+
+// lights
+// var light = new THREE.PointLight(0xffffff, 1, 100);
+// light.position.set(50, 50, 10);
+// scene.add(light);
+
+// hero bounding box
+hero = new THREE.Group();
+scene.add( hero );
+// 3D cursor
+cursor = new THREE.Group();
+scene.add(cursor);
+//
+
+// var geometry = new THREE.SphereBufferGeometry( 50, 50, 50 );
+var geometry = new THREE.BoxGeometry( 100, 100, 100 );
+
+var material = new THREE.MeshLambertMaterial( {color: 0xffff00} );
+mesh = new THREE.Mesh( geometry, material );
+hero.add( mesh );
+
+
+// ground texture
+var material = new THREE.MeshBasicMaterial( {
+  color: 0x220000
+  // ,map:runtexture
+  // , side:THREE.DoubleSide
+,transparent:true, opacity:0.5
+} );
+var geometry = new THREE.PlaneBufferGeometry( 2000, 2000, 1 );
+groundplane = new THREE.Mesh( geometry, material );
+groundplane.rotation.set (-Math.PI/2,0,Math.PI/2);
+groundplane.position.set (0,-20,0);
+scene.add( groundplane );
+
+
+
+// KEYS
+keyboard = {
+    _pressed: {},
+
+    LEFT: 37,
+    UP: 38,
+    RIGHT: 39,
+    DOWN: 40,
+
+isDown: function(keyCode) {
+    return this._pressed[keyCode];
+},
+
+onKeydown: function(event) {
+    this._pressed[event.keyCode] = true;
+},
+
+onKeyup: function(event) {
+    delete this._pressed[event.keyCode];
+}
+};
+//
+window.addEventListener( 'resize', onWindowResize, false );
+window.addEventListener('keyup', function(event) { keyboard.onKeyup(event); }, false);
+window.addEventListener('keydown', function(event) { keyboard.onKeydown(event); }, false);
+
+}// init
+
+
+// xhero class
+Xhero = function() {
+  this.runningCycle = 0;
+  this.mesh = new THREE.Group();
+  hero.add( this.mesh );
+}
+
+// walk
+Xhero.prototype.walk = function(force){
+  this.runningCycle += .4;
+  var t = this.runningCycle;
+  t = t % (2*Math.PI);
+  var amp = force*4;
+  //
+  hero.position.y =  Math.cos( t ) * amp * 1.2;
+  hero.rotation.x =  Math.cos( t ) * amp * .02;
+
+}//
+
+
+// resize event
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+
+// player movement update
+function playerupdate() {
+    if (keyboard.isDown(keyboard.LEFT)  && cursor.position.x> -1100)   {
+        cursor.position.x -= xmove*10;            
+    }
+    if (keyboard.isDown(keyboard.RIGHT)  && cursor.position.x< 1100)   {
+        cursor.position.x += xmove*10; 
+    }
+    if (keyboard.isDown(keyboard.UP) && cursor.position.z> -1100)   {
+        cursor.position.z -= xmove*10; 
+    }
+    if (keyboard.isDown(keyboard.DOWN) && cursor.position.z < 1100)   {
+        cursor.position.z += xmove*10; 
+    }
+
+  // lerp hero positions
+  hero.position.x += (cursor.position.x - hero.position.x)*0.2;
+  hero.position.z += (cursor.position.z - hero.position.z)*0.2;
+  
+  // if idle reset to zero
+  if (idlestate) {
+      hero.position.y += (-hero.position.y)*0.1;
+      hero.rotation.x += (-hero.rotation.x)*0.1
+  }
+
+}// playerupdate
+
+
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    camera.lookAt(mesh.position)
+    playerupdate();
+}
+
+
+
+
+// joystick
+var options = {
+  zone: document.body,
+  mode: 'dynamic',
+  dataOnly:true
+};
+
+var joy = nipplejs.create(options);
+
+
+joy.on('move dir start', function (evt, data) {
+// do for all movement
+if (data.force>0) {
+  idlestate=false
+  force = data.force; 
+  hero.rotation.y = 1.5+data.angle.radian;
+  xhero.walk(force);
+}
+
+// apply directions
+if (data.direction){ 
+  if (data.direction.x=='right' && cursor.position.x< 1100 ) {
+      cursor.position.x=cursor.position.x+data.force*(xmove);
+
+  }// R
+
+  if (data.direction.x=='left' && cursor.position.x> -1100) {
+          cursor.position.x=cursor.position.x-data.force*(xmove);    
+  }// L
+
+  if (data.direction.y=='up' && cursor.position.z> -1100) {
+          cursor.position.z=cursor.position.z-data.force*(xmove);       
+  }// U
+
+  if (data.direction.y=='down' && cursor.position.z< 1100) {
+          cursor.position.z=cursor.position.z+data.force*(xmove);   
+  }// U
+
+  }// if direction
+});// on start
+
+
+// release joystick
+joy.on('end', function (evt, data) {
+  idlestate=true;
+});// on end
+
+
+
+
+</script>
+</body>
+</html>

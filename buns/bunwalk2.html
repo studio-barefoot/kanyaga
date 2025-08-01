@@ -1,0 +1,536 @@
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, user-scalable=no">
+  	<title>bunwalk</title>
+	<style>
+body { margin: 0; color: #eee;
+/*background-color: #333; */
+background:#333;
+font-family: monospace;
+font-size: 2em;
+user-select:none;}
+#cnv {
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 100% }
+#buntex, #middlebun, #topbun {
+position: absolute;	left:0;
+}
+#middlebun {top: 130px;}
+#topbun {top: 260px;}
+#buntexcol, #middlebuncol, #topbuncol {
+position: absolute;	left:258px; }
+#middlebuncol {top: 130px;}
+#topbuncol {top: 260px;}
+#hud {position: absolute; top: 0; right: 0;
+z-index: 999; padding: 12px;}
+button {padding: 1em;}
+#buntexcol, #middlebuncol, #topbuncol,
+#buntex, #middlebun, #topbun {visibility: hidden;}
+#xvar {position: absolute; top: 0; left: 0;
+z-index: 99; margin: 0;}
+</style>
+</head>
+<body>
+<div id="hud">
+	<button id="walk">walk</button>
+	<button id="idle">idle</button>
+</div>
+	<p id="xvar"></p>
+
+
+<script src="three.min.js"></script>
+<script src="OrbitControls.min.js"></script>
+<script>
+var t = 0;
+var newz = 0;
+var newv = 0;
+var newt = 0;
+var v2v = 0;
+var vv = 0;
+var vx = 0;
+var vz = 0;
+
+
+
+// buttons
+document.getElementById("hud").addEventListener("click",function(e) {
+
+if(e.target && e.target.nodeName == "BUTTON") {
+// states    
+    if ( e.target.id == "idle") {
+		idlestate = true;
+		walkstate = false;
+	}
+//
+	if ( e.target.id == "walk") {
+		tempnum = num;
+// settempstore()
+// console.log(tempstore)
+	    idlestate = false;
+	    walkstate = true;
+	}
+
+        
+    } // states
+});
+
+// globals
+var eyesscale = 0;
+var idlestate = true;
+var walkstate = false;
+var num = 0;
+var cosnum = 0;
+var sinnum = 0;
+var lerpsin = 0;
+var lerpcos = 0;
+var xnum = 0;
+var ynum = 0;
+var znum = 0;
+// images
+const imageURL = [
+"buntex.png",
+"leg1.png",
+"face1col.png",
+"grid.png",
+"face2col.png",
+"face3col.png",
+"bunbasetex.png",
+"legcol.png",
+"face1bmp.png",
+"face2bmp.png",
+"face3bmp.png",
+"bunseeds.png",
+"bunseedsbmp.png",
+"face1shade.png",
+"shade.png",
+"baseshade.png",
+"face1blink.png",
+"face2blink.png"
+];
+const images = [];
+var imageCount = 0;
+
+
+// add images to loaded func
+imageURL.forEach(src => { 
+     const image = new Image();
+     image.src = src;
+     image.onload = ()=>{ 
+         imageCount += 1;
+         if(imageCount === imageURL.length){ 
+             ready();
+         }
+     }
+     images.push(image); 
+});	
+
+// once images are loaded, fill canvases
+function ready() {
+	// createcanvas("nameofobject", face, heightOfBGtexture, posOfBGtexture);
+	createcanvas("buntex", images[2], 1.1, 30, images[8]);
+	createcanvas("middlebun", images[4], 1, 20, images[9]);
+	createcanvas("topbun", images[5], 1.1, 0, images[10]);
+	init();
+	animate();
+} // ready
+
+
+// create bump texture
+function createcanvas(name, face, smultiplier, ypos, bmpface){
+	// bump canvas
+	thisbmp = document.createElement('canvas');
+	bmptx = thisbmp.getContext('2d');
+	thisbmp.id = name;
+	thisbmp.width = 256;
+	thisbmp.height = 128;
+	// base bun bump texture
+	bmptx.fillRect(0, 0, 256, 128);// base black
+	bmptx.drawImage(images[0], 0, ypos, 256, 128*smultiplier);// rounded shape
+	// bmptx.drawImage(images[0], 0, -90, 256, 128);// rounded shape
+	bmptx.drawImage(images[1], 32, 36-(ypos/2));// Rleg
+	bmptx.drawImage(images[1], 97, 36-(ypos/2));// Lleg
+	bmptx.drawImage(images[1], 162, 36-(ypos/2));// BRleg
+	bmptx.drawImage(images[1], -34, 36-(ypos/2));// Lleg
+	bmptx.drawImage(bmpface, 112, 50+(ypos/2), 32, 32);// face
+	// bmptx.drawImage(images[3], 0, 0, 256, 128);// grid	
+
+	// colour canvas
+	thiscol = document.createElement('canvas');
+	coltx = thiscol.getContext('2d');
+	thiscol.id = name+'col';
+	thiscol.width = 256;
+	thiscol.height = 128;	
+	// coltx.fillRect(0, 0, 256, 128);// base black
+	coltx.drawImage(images[6], 0, 0, 256, 128);//base col
+	coltx.drawImage(face, 112, 50+(ypos/2), 32, 32);// face
+	coltx.drawImage(images[7], 32, 36-(ypos/2));// Rleg
+	coltx.drawImage(images[7], 97, 36-(ypos/2));// Lleg
+	coltx.drawImage(images[7], 162, 36-(ypos/2));// BRleg
+	coltx.drawImage(images[7], -34, 36-(ypos/2));// Lleg
+	if (name == "topbun") {
+	bmptx.drawImage(images[12], 0, 0, 256, 128);//base col
+	coltx.drawImage(images[11], 0, 0, 256, 128);//base col
+	}
+	if (name == "buntex") {
+	bmptx.drawImage(images[15], 0, 0, 256, 128);//base col
+	coltx.drawImage(images[13], 0, 0, 256, 128);//base col
+	// console.log('face: ' + ypos)
+	}
+	if (name == "middlebun") {
+	coltx.drawImage(images[14], 0, 0, 256, 128);//base col
+	}	
+
+	// do it all
+	document.body.appendChild(thisbmp);	
+	document.body.appendChild(thiscol);	
+
+}
+
+
+// events
+window.addEventListener( 'resize', onWindowResize, false );
+// resize event
+function onWindowResize() {
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+
+// initiaise three.js
+function init(){
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+	renderer = new THREE.WebGLRenderer({
+    	alpha: true,
+    	antialias: true
+  	});
+
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.domElement.id = 'cnv';
+	document.body.appendChild( renderer.domElement );
+
+	camera.position.x = 50;
+	camera.position.z = 20;
+
+	// controls
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.enableDamping = true;
+	controls.dampingFactor = 0.9;
+	controls.maxDistance = 300;
+	controls.minDistance = 10;
+
+	// groups
+	hero = new THREE.Group();
+	hero.position.y = -10;
+	scene.add(hero);
+
+
+	// light
+	// var light3 = new THREE.PointLight( 0xffefef, 0.5 );
+	// light3.position.set( 20, 1, 30 );
+	// scene.add( light3 );
+	//
+	var light = new THREE.AmbientLight( 0x333333 );
+	light.intensity = 0.1;
+	scene.add( light );
+
+	// backlight
+	var directionalLight = new THREE.DirectionalLight( 0xcccccc, 0.0005 );
+	directionalLight.position.set(0,2000,100)
+	directionalLight.rotation.set(-Math.PI/2,0,0)
+	scene.add( directionalLight );
+
+	// bun base texture
+	var bumpcnv = new THREE.CanvasTexture(buntex);
+
+
+	// bumpcnv.magFilter = THREE.NearestFilter;
+	// bumpcnv.minFilter = THREE.LinearMipMapLinearFilter;
+
+	bumpcnv.wrapS = THREE.RepeatWrapping;
+	bumpcnv.wrapT = THREE.RepeatWrapping;
+
+	// sphere face 
+	var geometry = new THREE.SphereBufferGeometry( 10, 500, 500 );
+	var material = new THREE.MeshStandardMaterial( { 
+	color: 0xfc0065,
+	  // metalness: 20,
+	  roughness: 100,
+	  map : bumpcnv,
+	  displacementMap: bumpcnv,
+	  displacementScale: 20
+	  } );
+
+	// create buns
+	modelstore = [];
+	//
+	createbun("bbmp", buntex, buntexcol);
+	createbun("mbmp", middlebun, middlebuncol);
+	createbun("tbmp", topbun, topbuncol);
+
+
+	// set each bun
+
+	// bottom bun
+	modelstore[0].position.y = 0;
+	modelstore[0].scale.set(1,0.5,1);
+	modelstore[0].material.color = {r:246, g:206, b:204};
+
+	// middle bun
+	modelstore[1].position.y = 9;
+	modelstore[1].scale.set(0.8,0.5,0.8);
+	modelstore[1].material.color = {r:231, g:186, b:219};
+
+	// top bun
+	modelstore[2].position.y = 18;
+	modelstore[2].scale.set(0.7,0.5,0.7);
+	modelstore[2].material.color = {r:206, g:250, b:155};
+
+// 
+modelstore.forEach(model => { 
+model.material.map.minFilter = model.material.map.magFilter = THREE.NearestFilter;	
+});	
+
+
+} // end init
+
+
+// create bun
+function createbun(objname, texname, colname){
+		// sphere 
+		var geometry = new THREE.SphereBufferGeometry( 10, 200, 200 );
+		var material = new THREE.MeshStandardMaterial( { 
+		color: 0xfc0065,
+		metalness: 0.6,
+		map : new THREE.CanvasTexture(texname),
+		map : new THREE.CanvasTexture(colname),
+		displacementMap: new THREE.CanvasTexture(texname),
+		displacementScale: 10
+		} );
+		
+		//
+		var bunobj = new THREE.Mesh( geometry, material );
+		bunobj.name = objname;
+		hero.add( bunobj );
+		modelstore.push(bunobj);
+		// console.log(bunobj)
+}
+
+// render loop
+var animate = function () {
+	requestAnimationFrame( animate );
+	renderer.render( scene, camera );
+	
+// 		num++
+// //
+// 		xnum = 30;
+// 		ynum = 3;
+// 		znum = 300;
+// 		cosnum = (Math.cos(num/xnum)*ynum)/znum;
+// 		lerpcos += (cosnum - lerpcos) * 0.1;
+// 		sinnum = (Math.sin(num/xnum)*ynum)/znum;
+// 		lerpsin += (sinnum - lerpsin) * 0.1;
+
+t++;
+vv = (Math.cos(t/20)*4)/400;
+v2v = (Math.sin(t/20)*4)/400;
+vx = (10+(Math.sin(t/5)*40))/200;
+vz = (10+(Math.cos(t/5)*40))/200;
+
+// // state animations
+	if (idlestate == true) {
+// 		idle();
+	newv += (vv - newv) * 0.1;
+	newz += (v2v - newz) * 0.1;
+	document.body.style.background = 'red';
+	}
+
+	if (walkstate == true) {
+	newv += (vx - newv) * 0.1;
+	newz += (vz - newz) * 0.1;
+	document.body.style.background = 'maroon';
+}
+
+	// document.getElementById('xvar').innerHTML = newv;
+	newwalk(newv);
+
+	autowalk(modelstore[0], 'bbmp', 'buntex', 'buntexcol', 
+	30, // rounded shape top
+	newv*50, newv*50, newz*50, newz*50, // legs
+	5-newz*60,// head
+	images[8], // facebmp
+	images[2], // facecol
+	1.1, // multiplier	
+	images[16] //blinkface
+);
+
+autowalk(modelstore[1], 'mbmp', 'middlebun', 'middlebuncol', 
+	20, // rounded shape top
+	newv*2, newz*2, newv*2, newz*2, // legs
+	newz/2,  // head
+	images[9], // facebmp
+	images[4], // facecol
+	1, // multiplier
+	images[17] //blinkface
+	);
+	// idle()
+
+// 		xnum = 10;
+// 		ynum = 30;
+// 		znum = 6;
+// 		cosnum = (Math.cos(num/xnum)*ynum)/znum;
+// 		lerpcos += (cosnum - lerpcos) * 0.1;
+// 		sinnum = (Math.sin(num/xnum)*ynum)/znum;
+// 		lerpsin += (sinnum - lerpsin) * 0.1;
+// 		walk();
+// 	}
+
+
+
+	};
+
+
+
+// animations
+function idle(){
+	hero.rotation.z += (0 - hero.rotation.z)*0.3;
+	modelstore[2].scale.y += ((0.5+sinnum)-modelstore[2].scale.y)*0.2;
+	modelstore[2].position.y += ((20+(cosnum*30))-modelstore[2].position.y)*0.2;
+	modelstore[1].scale.y += ((0.6+sinnum)-modelstore[1].scale.y)*0.2;
+	modelstore[1].position.y += ((10+(cosnum*20))-modelstore[1].position.y)*0.2;
+	modelstore[0].scale.y += ((0.5+cosnum)-modelstore[0].scale.y)*0.2;
+	modelstore[0].position.y += ((cosnum*10)- modelstore[0].position.y)*0.2;
+		// console.log(20-(lerpcos*1.5))
+
+}
+
+//
+function walk(){
+
+// manually move the lazy fucker at the top
+modelstore[2].position.y = modelstore[2].position.y+(0.5*cosnum/50);
+
+modelstore[2].rotation.z += (0.5*cosnum/100)*0.1;
+
+// rotate whole stack
+hero.rotation.z += ((lerpsin/100)-hero.rotation.z)*0.3;
+
+autowalk(modelstore[0], 'bbmp', 'buntex', 'buntexcol', 
+	30, // rounded shape top
+	lerpcos*1.5, lerpcos*1.5, lerpsin*1.5, lerpsin*1.5, // legs
+	lerpsin,// head
+	images[8], // facebmp
+	images[2], // facecol
+	1.1, // multiplier	
+	images[16] //blinkface
+);
+
+autowalk(modelstore[1], 'mbmp', 'middlebun', 'middlebuncol', 
+	20, // rounded shape top
+	lerpsin*2, lerpcos*2, lerpsin*2, lerpcos*2, // legs
+	lerpcos/2,  // head
+	images[9], // facebmp
+	images[4], // facecol
+	1, // multiplier
+	images[17] //blinkface
+	);
+
+}
+
+
+//
+function newwalk(newv){
+	modelstore[2].position.y = modelstore[2].position.y+(0.5*newv*10);
+
+modelstore[2].rotation.z += (0.5*newv/100)*0.1;
+
+// rotate whole stack
+// hero.rotation.z += (newv-hero.rotation.z)*0.3;
+
+	// hero.rotation.z += (0 - hero.rotation.z)*0.3;
+	// hero.rotation.z += ((newv/10) - hero.rotation.z)*0.3;
+	modelstore[2].scale.y += ((0.5+(newv/10))-modelstore[2].scale.y)*0.2;
+	modelstore[2].position.y += ((20+(newv*20))-modelstore[2].position.y)*0.2;
+	modelstore[1].scale.y += ((0.6+(newv/5))-modelstore[1].scale.y)*0.2;
+	modelstore[1].position.y += ((10+(newv*20))-modelstore[1].position.y)*0.2;
+	modelstore[0].scale.y += ((0.5+newv)-modelstore[0].scale.y)*0.2;
+	modelstore[0].position.y += ((newv*10)- modelstore[0].position.y)*0.2;
+}
+
+
+
+
+
+
+
+function autowalk(obj, objname, bmptexname, coltexname, shape, Rleg, Lleg, BRleg, BLleg, headpos, facebmp, facecol, multiplier, blinkface){
+// 3D object
+	obj.rotation.z = newv*2;
+	// console.log(newv*2)
+	// obj.position.y = (obj.position.y+((newv*multiplier)/100));
+// 2D bump
+    bmptx = document.getElementById(bmptexname).getContext('2d');
+	bmptx.fillRect(0, 0, 256, 128);// base black
+	bmptx.drawImage(images[0], 0, shape, 256, 128*multiplier);// rounded shape
+	// vrleg = (20-Rleg)*0.1;
+	bmptx.drawImage(images[1], 32, 20-Rleg);// Rleg
+
+	bmptx.drawImage(images[1], 97, 20-(Lleg));// Lleg
+	bmptx.drawImage(images[1], 162, 20-(BRleg));// BRleg
+	bmptx.drawImage(images[1], -34, 20-(BLleg));// BLleg
+	bmptx.drawImage(facebmp, 112, 60+headpos, 32, 32);// face
+
+	// bmptx.drawImage(images[15], 0, 0, 256, 128);//base col
+// 2D colour
+    coltx = document.getElementById(coltexname).getContext('2d');
+	coltx.drawImage(images[6], 0, 0, 256, 128);//base col
+	coltx.drawImage(images[7], 32, 20-(Rleg));// Rleg
+	coltx.drawImage(images[7], 97, 20-(Lleg));// Lleg
+	coltx.drawImage(images[7], 162, 20-(BRleg));// BRleg
+	coltx.drawImage(images[7], -34, 20-(BLleg));// BLleg
+	// coltx.drawImage(images[13], 0, 0, 256, 128);//base col
+	coltx.drawImage(facecol, 112, 60+(headpos), 32, 32);// face
+	// eye blink
+	// if ( Math.random() > 0.99 ) {
+	// 	coltx.drawImage(blinkface, 112, 60+(headpos), 32, 32);
+	// } else {
+	// 	coltx.drawImage(facecol, 112, 60+(headpos), 32, 32);// face
+	// }
+
+
+// new blink
+if ( Math.random() > 0.995 ) { eyesscale = 0; } else {   
+  eyesscale += ( 1 - eyesscale ) * 0.1;
+}
+if (eyesscale>0.7) {
+	coltx.drawImage(blinkface, 112, 60+(headpos), 32, 32);
+} else {
+	coltx.drawImage(facecol, 112, 60+(headpos), 32, 32);// face
+
+} 
+
+
+
+
+	if (objname == "bbmp") {
+		bmptx.drawImage(images[15], 0, 0, 256, 128);//base col
+		coltx.drawImage(images[13], 0, 0, 256, 128);//base col
+	}
+	if (objname == "mbmp") {
+		coltx.drawImage(images[14], 0, 0, 256, 128);//base col
+	}	
+// update 3D model
+	var xobject = scene.getObjectByProperty( 'name', objname, true );
+	obj.material.displacementMap.needsUpdate = true;
+	obj.material.map.needsUpdate = true;
+}
+
+</script>
+</body>
+</html>
