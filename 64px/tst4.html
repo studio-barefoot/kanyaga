@@ -7,12 +7,6 @@
           margin: 0;
           padding: 0;
         }
-      @font-face {
-        font-family: "PICO-8";
-        src: url("font/PICO-8.ttf") format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
         body {
           margin: 0;
           background: #1a1a1b;
@@ -22,7 +16,7 @@
           justify-content: center;
           align-items: center;
           height: 100vh;
-        font-family: "PICO-8";
+          font-family: monospace;
           color: #eee;
           user-select: none;
         }
@@ -36,7 +30,7 @@
           z-index: 10;
           top: 4px;
           right: 4px;
-          transform: scale(0.1);
+          transform: scale(0.2);
           transform-origin: top right;
         }
         #hud {
@@ -74,17 +68,10 @@
       <div id="overlay"></div>
 
       <script src="js/three.min.js"></script>
-      <script src="js/nipplejs.js"></script>
+      <script src="js/nipplejs.min.js"></script>
 
       <script type="text/javascript">
         var camypos = 0;
-
-        function pxx(params) {
-          camera.position.z = params;
-          camypos = params / 2;
-          camera.position.y = camypos;
-          camera.lookAt(0, 60, 0);
-        }
         var player = {
           x: 0,
           z: 0,
@@ -183,13 +170,14 @@
           lvlbump = document.createElement("canvas");
           stx = lvlbump.getContext("2d");
           // 2048 x 3590
-          lvlbump.width = 2048;
-          lvlbump.height = 3590;
+          // 1024 x 1795 = *1.7529296875
+          lvlbump.width = 1024;
+          lvlbump.height = 1024;
           lvlbump.id = "lvlbump";
-          // document.body.appendChild(lvlbump);
+          document.body.appendChild(lvlbump);
 
           olimg = new Image();
-          olimg.src = "assets/Lake_Natron_bump.jpg";
+          olimg.src = "assets/bump.jpg";
 
           olimg.onload = () => {
             stx.drawImage(olimg, 0, 0);
@@ -296,20 +284,19 @@
 
         //
         function initGround() {
-          // 2048 × 3590 ( * 1.7529296875)
           // groundplane
           var geometry = new THREE.PlaneBufferGeometry(
             2048,
-            2048 * 1.7529296875,
+            2048,
             300,
-            400
+            300
           );
           var material = new THREE.MeshStandardMaterial({
             displacementMap: new THREE.TextureLoader().load(
-              "assets/Lake_Natron_bump.jpg"
+              "assets/bump.jpg"
             ),
-            displacementScale: 200,
-            map: new THREE.TextureLoader().load("assets/Lake_Natron.jpg"),
+            displacementScale: 150,
+            map: new THREE.TextureLoader().load("assets/col.jpg"),
             metalness: 0,
             roughness: 20,
           });
@@ -374,8 +361,8 @@
           // }
 
           // mapcheck
-          player.xu = 2048 / 2 + player.x * 4;
-          player.xv = 3590 / 2 + player.z * 4;
+          player.xu = 1024 / 2 + player.x * 2;
+          player.xv = 1024 / 2 + player.z * 2;
           var xdata = stx.getImageData(
             player.xu,
             player.xv,
@@ -386,13 +373,14 @@
 
           document.getElementById("txt").innerHTML = xdata.data[0];
 
-          // stx.drawImage(olimg, 0, 0);
-          // stx.fillStyle = "rgba(255, 0, 0, 1)";
-          // stx.fillRect(player.xu+22, player.xv, 20, 20);   
+          stx.drawImage(olimg, 0, 0);
+          stx.fillStyle = "rgba(255, 0, 0, 1)";
+          stx.fillRect(player.xu+12, player.xv, 10, 10);   
 
           // // set hero on ground
-          hero.position.y = xdata.data[0]-90;
-          camera.position.y = camypos + 50 + hero.position.y;
+          hero.position.y = (xdata.data[0]*2)-290;
+          camera.position.y = camypos + (hero.position.y+90);
+          camera.lookAt(hero.position);
 
           // joystick movement
           if (player.moving) {
@@ -413,11 +401,11 @@
           if (player.x < -62 * 4) {
             player.x = -62 * 4;
           }
-          if (player.z > 110 * 4) {
-            player.z = 110 * 4;
+          if (player.z > 62 * 4) {
+            player.z = 62 * 4;
           }
-          if (player.z < -110 * 4) {
-            player.z = -110 * 4;
+          if (player.z < -62 * 4) {
+            player.z = -62 * 4;
           }
 
           // vars
@@ -438,7 +426,7 @@
           // }
 
           // camera
-          camera.position.y = hero.position.y;
+          // camera.position.y = hero.position.y;
         }
 
         function createLights() {
