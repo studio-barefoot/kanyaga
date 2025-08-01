@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <title>64</title>
+    <style>
+      @font-face {
+        font-family: "PICO-8";
+        src: url("font/PICO-8.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+      }
+      body {
+        margin: 0;
+        background: #1a1a1b;
+        overflow: hidden;
+        cursor: crosshair;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "PICO-8", monospace;
+        color: #eee;
+        user-select: none;
+      }
+      #gamescreen {
+        display: block;
+        position: relative;
+        z-index: 1;
+      }
+      canvas {
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+        transform: scale(6);
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+      #noisetex {
+        opacity: 0.1;
+        z-index: 9;
+      }
+      #hud {
+        position: absolute;
+        top: 4px;
+        /* height: 16px; */
+        background-color: #000;
+        display: block;
+        padding: 4px;
+      }
+      #hud * {
+        margin: 0;
+        padding: 0;
+      }
+
+      #firebtn {
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        display: block;
+        width: 60px;
+        height: 60px;
+        line-height: 60px;
+        text-align: center;
+        background-color: red;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        z-index: 3;
+      }
+      #firebtn:hover {
+        background-color: maroon;
+      }
+      #firebtn:active {
+        background-color: white;
+        color: red;
+      }
+      #joy {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        /* background-color: rgba(255, 0, 0, 0.5); */
+      }
+      .corners {
+        clip-path: polygon(
+          0px calc(100% - 6px),
+          3px calc(100% - 6px),
+          3px calc(100% - 3px),
+          6px calc(100% - 3px),
+          6px 100%,
+          calc(100% - 6px) 100%,
+          calc(100% - 6px) calc(100% - 3px),
+          calc(100% - 3px) calc(100% - 3px),
+          calc(100% - 3px) calc(100% - 6px),
+          100% calc(100% - 6px),
+          100% 6px,
+          calc(100% - 3px) 6px,
+          calc(100% - 3px) 3px,
+          calc(100% - 6px) 3px,
+          calc(100% - 6px) 0px,
+          6px 0px,
+          6px 3px,
+          3px 3px,
+          3px 6px,
+          0px 6px
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <div id="firebtn" class="corners" onclick="fire()">boop</div>
+    <div id="joy"></div>
+
+    <div id="gamescreen">
+      <canvas class="noise"></canvas>
+    </div>
+
+    <script src="js/three.min.js"></script>
+    <script src="js/nipplejs.js"></script>
+    <script src="js/zzfx.js"></script>
+
+    <script>
+      const canvas = document.querySelector("canvas"),
+        ctx = canvas.getContext("2d");
+      canvas.id = "noisetex";
+      canvas.width = canvas.height = 64;
+
+      // resize();
+      // window.onresize = resize;
+
+      // function resize() {
+      //   canvas.width = window.innerWidth * window.devicePixelRatio;
+      //   canvas.height = window.innerHeight * window.devicePixelRatio;
+      //   canvas.style.width = window.innerWidth + "px";
+      //   canvas.style.height = window.innerHeight + "px";
+      // }
+
+      function noise(ctx) {
+        const w = ctx.canvas.width,
+          h = ctx.canvas.height,
+          iData = ctx.createImageData(w, h),
+          buffer32 = new Uint32Array(iData.data.buffer),
+          len = buffer32.length;
+        let i = 0;
+        for (; i < len; i++) if (Math.random() < 0.5) buffer32[i] = 0xffffffff;
+        ctx.putImageData(iData, 0, 0);
+      }
+
+      // player
+      player = {
+        speed: 0.25,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        moving: false,
+        rotation: 0,
+        maxSpeed: 10,
+      };
+
+      // keys
+      keyboard = {
+        _pressed: {},
+        LEFT: 37,
+        RIGHT: 39,
+        UP: 38,
+        DOWN: 40,
+        SPACE: 32,
+
+        isDown: function (keyCode) {
+          return this._pressed[keyCode];
+        },
+
+        onKeydown: function (event) {
+          this._pressed[event.keyCode] = true;
+        },
+
+        onKeyup: function (event) {
+          delete this._pressed[event.keyCode];
+        },
+      };
+
+      // spacebar
+      document.body.onkeyup = function (e) {
+        if (e.keyCode == 32) {
+          fire();
+        }
+      };
+
+      //controls
+      function playerControls() {
+        // UP
+        if (keyboard.isDown(keyboard.UP)) {
+          hero.position.z -= player.speed;
+        }
+        // DOWN
+        if (keyboard.isDown(keyboard.DOWN)) {
+          hero.position.z += player.speed;
+        }
+        // LEFT
+        if (keyboard.isDown(keyboard.LEFT)) {
+          hero.position.x -= player.speed;
+        }
+        // RIGHT
+        if (keyboard.isDown(keyboard.RIGHT)) {
+          hero.position.x += player.speed;
+        }
+
+        // joystick movement
+        if (player.moving) {
+          hero.position.z += player.vy / 10;
+          hero.position.x += player.vx / 10;
+        }
+
+        camera.position.set(
+          hero.position.x,
+          hero.position.y,
+          hero.position.z - 5
+        );
+      }
+
+      // speed limiter
+      function speedLimit(vx, vy, speedLimit) {
+        const hyp = Math.hypot(vx, vy);
+        if (hyp === 0) return { vx: 0, vy: 0 };
+        const maxSpeed = Math.min(hyp, speedLimit);
+        const ratio = maxSpeed / hyp;
+        return {
+          vx: ratio * vx,
+          vy: ratio * vy,
+        };
+      }
+      // key events
+      window.addEventListener(
+        "keyup",
+        function (event) {
+          keyboard.onKeyup(event);
+        },
+        false
+      );
+      window.addEventListener(
+        "keydown",
+        function (event) {
+          keyboard.onKeydown(event);
+        },
+        false
+      );
+
+      // nipple.js
+      const nipple = nipplejs.create({
+        mode: "dynamic",
+        dataOnly: true,
+        // zone: document.body,
+        // color: "white",
+        // mode: 'static',
+        // restOpacity: 0.1,
+        zone: document.getElementById("joy"),
+        // lockY: true,
+        // position: {
+        //   left: '80px',
+        //   bottom: '80px'
+        // }
+      });
+
+      // joystick
+      nipple.on("move", (e, data) => {
+        // console.log(data)
+        const vx = data.force * Math.cos(data.angle.radian);
+        const vy = -data.force * Math.sin(data.angle.radian);
+        const v = speedLimit(vx, vy, player.maxSpeed);
+        player.vx = v.vx;
+        player.vy = v.vy;
+        player.rotation = -Math.atan2(v.vy, v.vx);
+        // hero.rotation.y = player.rotation;
+
+        // player.force = data.distance / 25;
+        // player.speed = data.distance/300;
+        //
+        player.moving = true;
+      });
+
+      // end
+      nipple.on("end", (e, data) => {
+        player.moving = false;
+        player.vx = 0;
+        player.vy = 0;
+      });
+
+      // fit to screen functions
+      var visibleHeightAtZDepth = (depth, camera) => {
+        var cameraOffset = camera.position.y;
+        if (depth < cameraOffset) depth -= cameraOffset;
+        else depth += cameraOffset;
+        var vFOV = (camera.fov * Math.PI) / 180;
+        return 2 * Math.tan(vFOV / 2) * Math.abs(depth);
+      };
+
+      var visibleWidthAtZDepth = (depth, camera) => {
+        var height = visibleHeightAtZDepth(depth, camera);
+        return height * camera.aspect;
+      };
+
+      // start scene
+      const scene = new THREE.Scene();
+
+      // renderer
+      const renderer = new THREE.WebGLRenderer();
+      // renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(64, 64);
+      // document.body.appendChild(renderer.domElement);
+      const container = document.getElementById("gamescreen");
+      container.appendChild(renderer.domElement);
+
+      // camera
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.aspect = 1 / 1;
+      camera.updateProjectionMatrix();
+      camera.position.z = 5;
+
+      
+  // treetop
+  tgeometry = new THREE.SphereGeometry( 1, 1, 1 );
+  tmaterial = new THREE.MeshBasicMaterial({color: 0x88eb91, side: THREE.BackSide});
+  treegreen = new THREE.Mesh(tgeometry, tmaterial);
+  // treegreen.scale.set(0.5,0.5,0.5);
+  treegreen.position.set (-4, 0, -2);
+  treegreen.name = "treegrn";
+  scene.add( treegreen );
+
+
+      // BG
+      bgtexture = new THREE.TextureLoader().load("assets/bg.png");
+      bgtexture.magFilter = THREE.NearestFilter;
+      bgtexture.minFilter = THREE.NearestFilter;
+      var bggeometry = new THREE.PlaneGeometry(4, 4);
+      var bgmaterial = new THREE.MeshBasicMaterial({
+        map: bgtexture,
+        alphaTest: 0.2,
+      });
+      bg = new THREE.Mesh(bggeometry, bgmaterial);
+      // bg.scale.set(
+      //   visibleWidthAtZDepth(5, camera),
+      //   visibleHeightAtZDepth(5, camera),
+      //   1
+      // );
+      bgtexture.generateMipmaps = false;
+      bg.position.set(0, 0, -7.5);
+      scene.add(bg);
+
+      // // tree
+      // treetex = new THREE.TextureLoader().load("assets/tree.png");
+      // treetex.magFilter = THREE.NearestFilter;
+      // treetex.minFilter = THREE.NearestFilter;
+      // var treegeometry = new THREE.PlaneGeometry(4, 8);
+      // var treematerial = new THREE.MeshBasicMaterial({
+      //   map: treetex,
+      //   alphaTest: 0.2,
+      // });
+      // tree = new THREE.Mesh(treegeometry, treematerial);
+      // tree.position.y = 2;
+      // scene.add(tree);
+
+      // ground plane
+      var groundtexture = new THREE.TextureLoader().load("assets/pattern3.gif");
+      groundtexture.magFilter = THREE.NearestFilter;
+      groundtexture.minFilter = THREE.NearestFilter;
+      var gggeometry = new THREE.PlaneGeometry(100, 100, 100, 100);
+      var ggmaterial = new THREE.MeshStandardMaterial({
+        map: groundtexture,
+        displacementMap: new THREE.TextureLoader().load("assets/pattern3.gif"),
+        displacementScale: -10,
+      });
+      groundplane = new THREE.Mesh(gggeometry, ggmaterial);
+      groundplane.position.y = -2;
+      groundplane.position.z = -2;
+      groundplane.rotation.x = -Math.PI / 2;
+      scene.add(groundplane);
+
+      // player
+      hero = new THREE.Group();
+      scene.add(hero);
+
+      // Overlay
+      oltexture = new THREE.TextureLoader().load("assets/snap.png");
+      oltexture.magFilter = THREE.NearestFilter;
+      oltexture.minFilter = THREE.NearestFilter;
+      var olgeometry = new THREE.PlaneGeometry(4, 4);
+      var olmaterial = new THREE.MeshBasicMaterial({
+        map: oltexture,
+        alphaTest: 0.2,
+      });
+      overlay = new THREE.Mesh(olgeometry, olmaterial);
+      overlay.scale.set(
+        visibleWidthAtZDepth(-4, camera),
+        visibleHeightAtZDepth(-4, camera),
+        1
+      );
+      overlay.position.set(0, 0, -4);
+      camera.add(overlay);
+
+      // cube
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const cube = new THREE.Mesh(geometry, material);
+      hero.add(cube);
+
+      // lights
+      createLights();
+      function createLights() {
+        globalLight = new THREE.AmbientLight(0xffffff, 1);
+        shadowLight = new THREE.DirectionalLight(0xffffff, 1);
+        shadowLight.position.set(10, 8, 8);
+        shadowLight.castShadow = true;
+        shadowLight.shadow.camera.left = -40;
+        shadowLight.shadow.camera.right = 40;
+        shadowLight.shadow.camera.top = 40;
+        shadowLight.shadow.camera.bottom = -40;
+        shadowLight.shadow.camera.near = 1;
+        shadowLight.shadow.camera.far = 1000;
+        shadowLight.shadow.mapSize.width =
+          shadowLight.shadow.mapSize.height = 1024;
+        scene.add(globalLight);
+        scene.add(shadowLight);
+      }
+
+      function fire() {
+        console.log("boop");
+        // zzfxV=.01;
+        zzfx(...[, 0, 440, , 0.1, , 1, 1.5, , , , , , 0.2, , 0.6, 0.01]);
+      }
+
+      // loop
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+        playerControls();
+        noise(ctx);
+      }
+
+      // start
+      animate();
+    </script>
+  </body>
+</html>
