@@ -174,7 +174,7 @@
           lvlbump.width = 1024;
           lvlbump.height = 1024;
           lvlbump.id = "lvlbump";
-          document.body.appendChild(lvlbump);
+          // document.body.appendChild(lvlbump);
 
           olimg = new Image();
           olimg.src = "assets/bump.jpg";
@@ -301,7 +301,7 @@
           waterplane.receiveShadow = true;
           waterplane.castShadow = true;
           waterplane.rotation.x = -Math.PI / 2;
-          waterplane.position.set(0, -190, 0);
+          waterplane.position.set(0, -290, 0);
           scene.add(waterplane);
         }
 
@@ -335,14 +335,13 @@
             1
           );
 
-          document.getElementById("txt").innerHTML = 'y:'+xdata.data[0];
-
-          stx.drawImage(olimg, 0, 0);
-          stx.fillStyle = "rgba(255, 0, 0, 1)";
-          stx.fillRect(player.xu+12, player.xv, 10, 10);   
-
+          // draw player position on map
+          // stx.drawImage(olimg, 0, 0);
+          // stx.fillStyle = "rgba(255, 0, 0, 1)";
+          // stx.fillRect(player.xu+12, player.xv, 10, 10);   
+          
           // // set hero on ground
-          hero.position.y = (xdata.data[0]*2)-290;
+          hero.position.y = (xdata.data[0]*2)-360;
           camera.position.y = camypos + (hero.position.y+40);
           camera.lookAt(hero.position);
 
@@ -375,6 +374,7 @@
           // vars
           document.getElementById("xvar").innerHTML = Math.floor(player.x);
           document.getElementById("zvar").innerHTML = Math.floor(player.z);
+          document.getElementById("txt").innerHTML = 'y:'+xdata.data[0];
           
         }
 
