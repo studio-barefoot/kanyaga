@@ -1,0 +1,487 @@
+  <html>
+    <head>
+      <title>dunes</title>
+      <style type="text/css">
+        * {
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          margin: 0;
+          background: #1a1a1b;
+          overflow: hidden;
+          cursor: crosshair;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-family: monospace;
+          color: #eee;
+          user-select: none;
+        }
+        canvas {
+          image-rendering: crisp-edges;
+          image-rendering: pixelated;
+          transform: scale(6);
+        }
+        #lvlbump {
+          position: absolute;
+          z-index: 10;
+          top: 4px;
+          right: 4px;
+          transform: scale(0.2);
+          transform-origin: top right;
+        }
+        #hud {
+          position: absolute;
+          top: 0;
+          left: 0;
+          padding: 8px;
+          font-size: 16px;
+          line-height: 20px;
+        }
+        .hide {
+          display: none;
+        }
+        #overlay {
+          display: block;
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          right: 0;
+          width: 100%;
+          height: 100%;
+          /* background-color: red; */
+          z-index: 9;
+        }
+      </style>
+    </head>
+    <body>
+
+    <script type="text/javascript">
+    let house_model_state = `{"name":"25.08.01 20:24 - ","objs":{"6aRmjWqRjW4B6TKCBPUfj":{"id":"6aRmjWqRjW4B6TKCBPUfj","position":{"x":0,"y":5,"z":0},"rotation":{"x":0,"y":0,"z":0},"scale":{"x":10,"y":10,"z":10},"type":"cube"},"cO9tMVGs68QgncWjxHtXj":{"id":"cO9tMVGs68QgncWjxHtXj","position":{"x":-3.5,"y":11,"z":0},"rotation":{"x":0,"y":0,"z":0.8},"scale":{"x":10,"y":1,"z":11},"type":"cube","matId":"cb3mNmWdMsRTItyXIuoAM"},"8R6LMS6CbaS-92l5ymf8v":{"id":"8R6LMS6CbaS-92l5ymf8v","position":{"x":3.5,"y":11,"z":0},"rotation":{"x":0,"y":0,"z":-0.8},"scale":{"x":10,"y":1,"z":11},"type":"cube","matId":"cb3mNmWdMsRTItyXIuoAM"},"dACDUFjPcXbxMe4602Y79":{"id":"dACDUFjPcXbxMe4602Y79","position":{"x":0,"y":2.5,"z":5},"rotation":{"x":0,"y":0,"z":0},"scale":{"x":4,"y":5,"z":1},"type":"cube","matId":"cb3mNmWdMsRTItyXIuoAM"}},"materials":{"default":{"id":"default","color":16764108,"name":"default"},"cb3mNmWdMsRTItyXIuoAM":{"id":"cb3mNmWdMsRTItyXIuoAM","color":4456448,"name":"cb3m"}}}`;
+    </script>
+
+<script type="text/javascript">
+class CrappyObjectInstance  {
+    instances = {};
+    materialInstances = {};
+
+    constructor(scene, state) {
+        this.scene = scene;
+        this.root = new THREE.Group();
+        this.scene.add(this.root);
+        this.state = state;
+        this.instantiate();
+    }
+
+    instantiate() {
+        Object.values(this.instances).forEach(inst=>inst.parent.remove(inst));
+        this.instances={};
+        this.materialInstances={};
+        Object.values(this.state.objs).forEach(obj=>this.inst(obj));
+    }
+
+    getMatInstance(id){
+        if (!id) id = 'default';
+        const mat = this.state.materials[id];
+
+        if (!this.materialInstances[id]) this.materialInstances[id]= new THREE.MeshStandardMaterial({ color: mat.color });
+        return this.materialInstances[id];
+    }
+
+    inst(obj){
+        let g = this.getGeometryForType(obj.type);
+        let mat = this.getMatInstance(obj.matId);
+        let mesh = new THREE.Mesh(g, mat);
+
+        mesh.position.copy(new THREE.Vector3(obj.position.x, obj.position.y, obj.position.z));
+        mesh.rotation.copy(new THREE.Euler(obj.rotation.x, obj.rotation.y, obj.rotation.z));
+        mesh.scale.copy(new THREE.Vector3(obj.scale.x, obj.scale.y, obj.scale.z));
+
+        this.root.add(mesh);
+
+        this.instances[obj.id] = mesh;
+    }
+
+    getGeometryForType(type){
+        switch(type){
+            case'sphere':
+            return new THREE.SphereGeometry();
+            case'cylinder':
+            return new THREE.CylinderGeometry(1, 1, 1, 32);
+            case'cone':
+            return new THREE.CylinderGeometry(0, 1, 1, 32);
+            default:
+            return new THREE.BoxGeometry();
+        }
+    }
+}
+</script>
+
+
+
+      <div id="hud">
+        <div>x:<span id="xvar">1</span></div>
+        <div>z:<span id="zvar">2</span></div>
+        <div><span id="txt"></span></div>
+      </div>
+
+      <div id="overlay"></div>
+
+      <script src="js/three.min.js"></script>
+      <script src="js/nipplejs.js"></script>
+
+      <script type="text/javascript">
+        var camypos = 0;
+        var player = {
+          x: 0,
+          z: 0,
+          xlerp: 0,
+          zlerp: 0,
+          vx: 0,
+          vy: 0,
+          xu:0,
+          xv:0,
+          rotation: 0,
+          maxSpeed: 0.4,
+          moving: false,
+          landing: true,
+        };
+
+        // nipple.js
+        const nipple = nipplejs.create({
+          dataOnly: true,
+          // zone: document.body,
+          zone: document.getElementById("overlay"),
+        });
+
+        // speed limiter
+        function speedLimit(vx, vy, speedLimit) {
+          const hyp = Math.hypot(vx, vy);
+          if (hyp === 0) return { vx: 0, vy: 0 };
+          const maxSpeed = Math.min(hyp, speedLimit);
+          const ratio = maxSpeed / hyp;
+          return {
+            vx: ratio * vx,
+            vy: ratio * vy,
+          };
+        }
+
+        // // start
+        nipple.on("move", (e, data) => {
+          // console.log(data)
+          const vx = data.force * Math.cos(data.angle.radian);
+          const vy = -data.force * Math.sin(data.angle.radian);
+          const v = speedLimit(vx, vy, player.maxSpeed);
+          player.vx = v.vx;
+          player.vy = v.vy;
+          // player.force = data.distance/25;
+          //
+          player.moving = true;
+        });
+
+        // end
+        nipple.on("end", (e, data) => {
+          player.moving = false;
+          player.vx = 0;
+          player.vy = 0;
+        });
+
+        keyboard = {
+          _pressed: {},
+
+          LEFT: 37,
+          UP: 38,
+          RIGHT: 39,
+          DOWN: 40,
+
+          isDown: function (keyCode) {
+            player.moving = true;
+            return this._pressed[keyCode];
+          },
+
+          onKeydown: function (event) {
+            this._pressed[event.keyCode] = true;
+          },
+
+          onKeyup: function (event) {
+            player.moving = false;
+            delete this._pressed[event.keyCode];
+          },
+        };
+
+        // KEYBOARD
+        window.addEventListener(
+          "keyup",
+          function (event) {
+            keyboard.onKeyup(event);
+          },
+          false
+        );
+        window.addEventListener(
+          "keydown",
+          function (event) {
+            keyboard.onKeydown(event);
+          },
+          false
+        );
+
+        function init() {
+          // lvlbump
+          lvlbump = document.createElement("canvas");
+          stx = lvlbump.getContext("2d");
+          // 2048 x 3590
+          // 1024 x 1795 = *1.7529296875
+          lvlbump.width = 1024;
+          lvlbump.height = 1024;
+          lvlbump.id = "lvlbump";
+          document.body.appendChild(lvlbump);
+
+          olimg = new Image();
+          olimg.src = "assets/bump.jpg";
+
+          olimg.onload = () => {
+            stx.drawImage(olimg, 0, 0);
+
+            initScene();
+            initGround();
+            animate();
+          };
+        }
+
+        //
+        function initScene() {
+          // threejs
+          scene = new THREE.Scene();
+          camera = new THREE.PerspectiveCamera(
+            72,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+          );
+          renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          document.body.appendChild(renderer.domElement);
+          renderer.domElement.id = "cnv";
+          renderer.shadowMap.enabled = true;
+          renderer.setPixelRatio(window.devicePixelRatio);
+          renderer.setSize(64, 64);
+
+
+          camera.aspect = 1 / 1;
+          camera.position.set(0, 50, 150);
+          camera.updateProjectionMatrix();
+
+          // light
+          globalLight = new THREE.AmbientLight(0xffffff, 0.4);
+          scene.add(globalLight);
+          createLights();
+
+          // fog
+          scene.fog = new THREE.FogExp2(0x000000, 0.0015);
+
+          // 3D house
+          housearray = [];
+          house = new THREE.Group();
+          scene.add(house);
+
+          // house marker
+          var housegeometry = new THREE.BoxBufferGeometry(2, 30, 2);
+          var bmaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+          var housebox = new THREE.Mesh(housegeometry, bmaterial);
+          housebox.position.y = 25 + 20;
+          house.add(housebox);
+          housearray.push(housebox);
+          // beacon
+          var lightgeometry = new THREE.BoxBufferGeometry(9, 9, 9);
+          var lightbox = new THREE.Mesh(
+            lightgeometry,
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+          );
+          lightbox.position.y = 42 + 20;
+          house.add(lightbox);
+          housearray.push(lightbox);
+
+          // hero group
+          hero = new THREE.Group();
+          scene.add(hero);
+          camera.lookAt(hero.position);
+
+          // cube
+          const boxgeometry = new THREE.BoxGeometry(20, 20, 20);
+          const boxmaterial = new THREE.MeshLambertMaterial({
+            color: 0x00ff00,
+          });
+          const cube = new THREE.Mesh(boxgeometry, boxmaterial);
+          cube.receiveShadow = true;
+          cube.castShadow = true;
+          cube.rotation.set(0, -Math.PI / 2, 0);
+          cube.position.y = 0;
+          hero.add(cube);
+
+
+
+          // Initial houses, TODO place them at more interesting places
+          let state = JSON.parse(house_model_state);
+          let crapHouse = new CrappyObjectInstance(scene, state);
+          housearray.push(crapHouse.root);
+          crapHouse.root.position.y = -120
+          crapHouse.root.scale.multiplyScalar(7)
+
+          for (let x = 0; x < 6; x++) {
+            let clone = crapHouse.root.clone();
+            clone.userData.offset = { x: x, z: 0 };
+            housearray.push(clone);
+            scene.add(clone);
+          }
+
+        }
+
+        //
+        function initGround() {
+          // groundplane
+          var geometry = new THREE.PlaneBufferGeometry(
+            2048,
+            2048,
+            300,
+            300
+          );
+          var material = new THREE.MeshStandardMaterial({
+            displacementMap: new THREE.TextureLoader().load(
+              "assets/bump.jpg"
+            ),
+            displacementScale: 100,
+            map: new THREE.TextureLoader().load("assets/col.jpg"),
+            metalness: 0,
+            roughness: 20,
+          });
+          material.map.magFilter = THREE.NearestFilter;
+          material.map.minFilter = THREE.NearestFilter;
+
+          groundplane = new THREE.Mesh(geometry, material);
+          groundplane.name = "groundplane";
+          groundplane.position.set(0, -360, 0);
+          groundplane.rotation.x = -Math.PI / 2;
+          groundplane.receiveShadow = true;
+          groundplane.castShadow = true;
+          groundplane.scale.set(4, 4, 4);
+          scene.add(groundplane);
+          housearray.push(groundplane);
+
+          //
+          var watermaterial = new THREE.MeshBasicMaterial({
+            color: 0x1111ff,
+            transparent: true,
+            opacity: 0.3,
+          });
+          waterplane = new THREE.Mesh(geometry, watermaterial);
+          waterplane.receiveShadow = true;
+          waterplane.castShadow = true;
+          waterplane.rotation.x = -Math.PI / 2;
+          waterplane.position.set(0, -290, 0);
+          scene.add(waterplane);
+        }
+
+        // player movement update
+        function playerupdate() {
+          if (keyboard.isDown(keyboard.LEFT)) {
+            player.x -= player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.RIGHT)) {
+            player.x += player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.UP)) {
+            player.z -= player.maxSpeed;
+          }
+          if (keyboard.isDown(keyboard.DOWN)) {
+            player.z += player.maxSpeed;
+          }
+
+          // lerp motion
+          player.xlerp += (player.x - player.xlerp) * 0.2;
+          player.zlerp += (player.z - player.zlerp) * 0.2;
+
+
+          // mapcheck
+          player.xu = 1024 / 2 + player.x * 2;
+          player.xv = 1024 / 2 + player.z * 2;
+          var xdata = stx.getImageData(
+            player.xu,
+            player.xv,
+            1,
+            1
+          );
+
+          // draw player position on map
+          stx.drawImage(olimg, 0, 0);
+          stx.fillStyle = "rgba(255, 0, 0, 1)";
+          stx.fillRect(player.xu+12, player.xv, 10, 10);   
+          
+          // // set hero on ground
+          hero.position.y = (xdata.data[0]*2)-360;
+          camera.position.y = camypos + (hero.position.y+40);
+          camera.lookAt(hero.position);
+
+          // joystick movement
+          if (player.moving) {
+            player.z += player.vy;
+            player.x += player.vx;
+          }
+
+          // align 3D
+          for (let i = 0, len = housearray.length; i < len; i++) {
+            housearray[i].position.x = -player.xlerp * 16 + 0.15;
+            housearray[i].position.z = -player.zlerp * 16 - 0.8;
+          } // for
+
+          // bounds
+          if (player.x > 62 * 4) {
+            player.x = 62 * 4;
+          }
+          if (player.x < -62 * 4) {
+            player.x = -62 * 4;
+          }
+          if (player.z > 62 * 4) {
+            player.z = 62 * 4;
+          }
+          if (player.z < -62 * 4) {
+            player.z = -62 * 4;
+          }
+
+          // vars
+          document.getElementById("xvar").innerHTML = Math.floor(player.x);
+          document.getElementById("zvar").innerHTML = Math.floor(player.z);
+          document.getElementById("txt").innerHTML = 'y:'+xdata.data[0];
+          
+        }
+
+        function createLights() {
+          shadowLight = new THREE.DirectionalLight(0xffffff, 1);
+          shadowLight.position.set(0, 120, 0.1);
+          shadowLight.castShadow = true;
+          shadowLight.shadow.radius = 4;
+          shadowLight.shadow.camera.left = -40;
+          shadowLight.shadow.camera.right = 40;
+          shadowLight.shadow.camera.top = 40;
+          shadowLight.shadow.camera.bottom = -40;
+          shadowLight.shadow.camera.near = 1;
+          shadowLight.shadow.camera.far = 1000;
+          shadowLight.shadow.mapSize.width =
+            shadowLight.shadow.mapSize.height = 128;
+          scene.add(shadowLight);
+        }
+
+        // loop
+        function animate() {
+          requestAnimationFrame(animate);
+          renderer.render(scene, camera);
+          playerupdate();
+        }
+
+        // start
+        init();
+      </script>
+    </body>
+  </html>
